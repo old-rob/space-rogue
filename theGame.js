@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.0.2
+//TEST ROGUELIKE VER 0.0.3
 
 class Actor {
   constructor(x, y) {
@@ -30,7 +30,8 @@ class Player extends Actor {
   //methods
   act() {
     return new Promise((resolve) => {
-      window.addEventListener('keydown', handleKeypress.bind(this), {once: true});
+      let keypressBind = handleKeypress.bind(this);
+      window.addEventListener('keydown', keypressBind);
       function handleKeypress(event) {
         let validInputs = {}
         validInputs[37] = 6;
@@ -44,7 +45,9 @@ class Player extends Actor {
           let newX = this.x + dir[0];
           let newY = this.y + dir[1];
           let newKey = newX + "," + newY;
-          if (!(newKey in Game.map)) { return; }
+          if (!(newKey in Game.map)) {
+            return;
+          }
           //Draw over old spot
           Game.display.draw(this.x, this.y, Game.map[this.x+","+this.y]);
           //Move and redraw self
@@ -52,7 +55,7 @@ class Player extends Actor {
           this.y = newY;
           this.draw();
 
-          window.removeEventListener('keydown', handleKeypress);
+          window.removeEventListener('keydown', keypressBind);
           resolve();
         }
       }
@@ -66,7 +69,8 @@ class Crab extends Actor {
     this.symbol = "C";
   }
   act() {
-    alert("I'm a crab!");
+    //alert("I'm a crab!");
+    this.draw();
   }
 }
 
