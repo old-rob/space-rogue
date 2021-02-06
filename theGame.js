@@ -17,7 +17,7 @@ class Actor {
   }
   act() {
     alert("Actor is acting");
-    return new Promise(resolve => alert("I'm an actor without acting instructions..."));
+    //return new Promise(resolve => alert("I'm an actor without acting instructions..."));
   }
 }
 
@@ -29,41 +29,34 @@ class Player extends Actor {
   }
   //methods
   act() {
-    //alert("Player.act() start");
-    //let userInputPromise = new Promise(resolve => window.addEventListener("keydown", this.handleKeypress, {once:true}));
-
     return new Promise((resolve) => {
-      window.addEventListener('keydown', handleKeypress);
+      window.addEventListener('keydown', handleKeypress.bind(this), {once: true});
       function handleKeypress(event) {
-        if (event.keyCode === 13) {
+        let validInputs = {}
+        validInputs[37] = 6;
+        validInputs[38] = 0;
+        validInputs[39] = 2;
+        validInputs[40] = 4;
+
+        if (event.keyCode in validInputs) {
+          //Check if desired space is free
+          let dir = ROT.DIRS[8][validInputs[event.keyCode]];
+          let newX = this.x + dir[0];
+          let newY = this.y + dir[1];
+          let newKey = newX + "," + newY;
+          if (!(newKey in Game.map)) { return; }
+          //Draw over old spot
+          Game.display.draw(this.x, this.y, Game.map[this.x+","+this.y]);
+          //Move and redraw self
+          this.x = newX;
+          this.y = newY;
+          this.draw();
+
           window.removeEventListener('keydown', handleKeypress);
           resolve();
         }
       }
     });
-
-  }
-  handleKeypress(event) {
-    let validInputs = {}
-    validInputs[37] = 6;
-    validInputs[38] = 0;
-    validInputs[39] = 2;
-    validInputs[40] = 4;
-
-    if (event.keyCode in validInputs) {
-      //Check if desired space is free
-      let dir = ROT.DIRS[8][validInputs[event.keyCode]];
-      let newX = this.x + dir[0];
-      let newY = this.y + dir[1];
-      let newKey = newX + "," + newY;
-      if (!(newKey in Game.map)) { return; }
-      //Draw over old spot
-      Game.display.draw(this.x, this.y, Game.map[this.x+","+this.y]);
-      //Move and redraw self
-      this.x = newX;
-      this.y = newY;
-      this.draw();
-    }
   }
 }
 
@@ -164,7 +157,7 @@ class MapBuilder {
 async function eventLoop() {
     while (true) {
         let actor = Game.scheduler.next();
-        alert(actor.symbol);
+        //alert(actor.symbol);
         if (!actor) { break; }
         await actor.act();
     }
