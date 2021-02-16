@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.0.6
+//TEST ROGUELIKE VER 0.1.0
 
 class Actor {
   constructor(x, y) {
@@ -7,6 +7,7 @@ class Actor {
     this.symbol = "?";
     this.color = "red";
     this.speed = 10;
+    this.los = 3;
   }
   //methods
   getSpeed() {
@@ -42,6 +43,8 @@ class Player extends Actor {
     super(x, y);
     this.symbol = "@";
     this.color = "#ff0";
+    this.maxOxygen = 700;
+    this.oxygen = 700;
   }
   //methods
   act() {
@@ -49,36 +52,48 @@ class Player extends Actor {
       let keypressBind = handleKeypress.bind(this);
       window.addEventListener('keydown', keypressBind);
       function handleKeypress(event) {
-        let validInputs = {}
-        validInputs[37] = 6;
-        validInputs[38] = 0;
-        validInputs[39] = 2;
-        validInputs[40] = 4;
+        let movementInputs = {}
+        movementInputs[65] = 6; //a - 37 is leftKey
+        movementInputs[87] = 0; //w - 38 is upKey
+        movementInputs[68] = 2; //d - 39 is rightKey
+        movementInputs[83] = 4; //s - 40 is downKey
 
-        if (event.keyCode in validInputs) {
-          let currentIndex = model.getIndex(this.x, this.y);
+        if (event.keyCode in movementInputs) {
           //Check if desired space is free
-          let dir = ROT.DIRS[8][validInputs[event.keyCode]];
-          let newX = this.x + dir[0];
-          let newY = this.y + dir[1];
-          let newIndex = model.getIndex(newX, newY);
-          let desiredTile = model.map[newIndex];
-          desiredTile.explored = true;
-          if (desiredTile.type === "wall") {
-            return;
+          let dir = ROT.DIRS[8][movementInputs[event.keyCode]];
+          if (this.attemptMove(dir)) {
+            this.oxygen -= 1;
+            window.removeEventListener('keydown', keypressBind);
+            resolve();
           }
-
-          model.map[currentIndex].occupant = null;
-          model.map[newIndex].occupant = this;
-
-          this.x = newX;
-          this.y = newY;
-
-          window.removeEventListener('keydown', keypressBind);
-          resolve();
+          return;
         }
       }
     });
+  }
+
+  attemptMove(dir) {
+    let newX = this.x + dir[0];
+    let newY = this.y + dir[1];
+
+    let currentIndex = model.getIndex(this.x, this.y);
+    let newIndex = model.getIndex(newX, newY);
+    let currentTile = model.map[currentIndex];
+    let newTile = model.map[newIndex];
+
+    if (newTile.type === "wall") {
+      return false;
+    } else if (newTile.occupant) {
+      return false;
+    }
+
+    currentTile.occupant = null;
+    newTile.occupant = this;
+
+    this.x = newX;
+    this.y = newY;
+
+    return true;
   }
 }
 
@@ -97,8 +112,17 @@ class Crab extends Actor {
       let x = path[0][0];
       let y = path[0][1];
 
-      this.x = x;
-      this.y = y;
+      let currentTile = model.map[model.getIndex(this.x, this.y)]
+      let newTile = model.map[model.getIndex(x, y)]
+
+      if (newTile.occupant) {
+        return;
+      } else {
+        currentTile.occupant = null;
+        newTile.occupant = this;
+        this.x = x;
+        this.y = y;
+      }
     }
   }
 }
@@ -106,10 +130,13 @@ class Crab extends Actor {
 class Tile {
   occupant = null;
   items = null;
-  constructor(type, symbol) {
+  constructor(x, y, type, symbol, lucent) {
+    this.x = x;
+    this.y = y;
     this.type = type;
     this.symbol = symbol;
     this.explored = false;
+    this.translucent = lucent;
   }
 }
 
@@ -130,6 +157,9 @@ class Model {
   }
   getY(index) {
     return Math.floor(index/this.width);
+  }
+  getTileAt(x, y) {
+    return this.map[x + this.width * y];
   }
 
   // [21, 22, 44, 46, 47]
@@ -162,10 +192,10 @@ class Model {
         let index = this.getIndex(x, y);
         // We have an empty space
         if (value === 0) {
-          this.map[index] = new Tile("empty", ".");
+          this.map[index] = new Tile(x, y, "empty", ".", true);
           freeCells.push(index);
         } else {
-          this.map[index] = new Tile("wall", "#");
+          this.map[index] = new Tile(x, y, "wall", "#", false);
         }
     }
     digger.create(digCallback.bind(this));
@@ -185,8 +215,16 @@ class View {
   }
 
   initialize() {
-    this.display = new ROT.Display({width:this.width, height:this.height, forceSquareRatio: true});
-    document.body.appendChild(this.display.getContainer());
+    this.statsDisplay = new ROT.Display({width:18, height:35});
+    document.body.appendChild(this.statsDisplay.getContainer());
+
+    this.mapDisplay = new ROT.Display({width:this.width, height:this.height, forceSquareRatio: true});
+    document.body.appendChild(this.mapDisplay.getContainer());
+    this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
+
+    this.textDisplay = new ROT.Display({width:74, height:5});
+    document.body.appendChild(this.textDisplay.getContainer());
+    this.textDisplay.drawText(1, 1, "Welcome to the Cosmos, use WASD to move.", 56);
   }
 
   getCameraPos(playerPos, viewSize, mapSize) {
@@ -220,26 +258,62 @@ class View {
     }
   }
 
-  updateDisplay() {
+  /* FOV input callback */
+  lightPasses(x, y) {
+    let tile = model.getTileAt(x, y);
+    if (tile) {
+      return tile.translucent;
+    } else {
+      return false;
+    }
+  }
+
+  updateMapDisplay() {
     let camX = this.getCameraX(model.player.x, model.width);
     let camY = this.getCameraY(model.player.y, model.height);
+    let fovTiles = [];
+
+    /* output callback */
+    view.fov.compute(model.player.x, model.player.y, model.player.los, function(x, y, r, visibility) {
+        fovTiles.push(model.map[model.getIndex(x, y)]);
+    });
 
     for (let i = 0; i < model.map.length; i++) {
-      let x = (i % model.width) - camX;
-      let y = Math.floor(i / model.width) - camY;
+      let x = model.map[i].x - camX;
+      let y = model.map[i].y - camY;
       if (model.map[i].explored) {
-        this.display.draw(x, y, model.map[i].symbol);
+        this.mapDisplay.draw(x, y, model.map[i].symbol, "#444");
       } else {
-        this.display.draw(x, y, 0);
+        this.mapDisplay.draw(x, y, 0);
       }
 
     }
     //Draw player
-    this.display.draw(model.player.x - camX, model.player.y - camY,
-      model.player.symbol, model.player.color);
-    for (let actor of model.actors) {
-      this.display.draw(actor.x - camX, actor.y - camY, actor.symbol, actor.color);
+    /*this.mapDisplay.draw(model.player.x - camX, model.player.y - camY,
+      model.player.symbol, model.player.color);*/
+    for (let tile of fovTiles) {
+      tile.explored = true;
+      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol);
+      let actor = tile.occupant;
+      if (actor) {
+        this.mapDisplay.draw(actor.x - camX, actor.y - camY, actor.symbol, actor.color);
+      }
     }
+  }
+  updateStatsDisplay() {
+    this.statsDisplay.clear();
+    this.statsDisplay.drawText(1, 1, "Oxygen:");
+    this.statsDisplay.drawText(1, 2, model.player.oxygen + "/" + model.player.maxOxygen);
+
+    this.statsDisplay.drawText(1, 4, "Oxygen:");
+    this.statsDisplay.drawText(1, 5, model.player.oxygen + "/" + model.player.maxOxygen);
+
+    //model.player
+  }
+
+  updateDisplay() {
+    this.updateMapDisplay();
+    this.updateStatsDisplay();
   }
 }
 
@@ -269,7 +343,7 @@ let engine = null;
 window.addEventListener("load", function() {
   model = new Model(100, 100);
   model.generateDugMap();
-  view = new View(35, 35);
+  view = new View(35, 45);
   view.initialize();
   view.updateDisplay(model);
   engine = new Engine();
