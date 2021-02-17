@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.1.0
+//TEST ROGUELIKE VER 0.1.7
 
 class Actor {
   constructor(x, y) {
@@ -43,8 +43,8 @@ class Player extends Actor {
     super(x, y);
     this.symbol = "@";
     this.color = "#ff0";
-    this.maxOxygen = 700;
-    this.oxygen = 700;
+    this.maxOxygen = 1000;
+    this.oxygen = 1000;
   }
   //methods
   act() {
@@ -218,7 +218,28 @@ class View {
     this.statsDisplay = new ROT.Display({width:18, height:35});
     document.body.appendChild(this.statsDisplay.getContainer());
 
-    this.mapDisplay = new ROT.Display({width:this.width, height:this.height, forceSquareRatio: true});
+    let tileSet = document.createElement("img");
+    tileSet.src = "./images/tiles_greymoon.png";
+
+    let options = {
+        layout: "tile",
+        bg: "transparent",
+        tileWidth: 16,
+        tileHeight: 16,
+        tileSet: tileSet,
+        tileMap: {
+            "@": [0, 0],
+            ".": [0, 16],
+            "#": [64, 16],
+            "C": [0, 48],
+        },
+        tileColorize: true,
+        width: this.width,
+        height: this.height,
+    }
+
+    this.mapDisplay = new ROT.Display(options);
+    //this.mapDisplay = new ROT.Display({width:this.width, height:this.height, forceSquareRatio: true});
     document.body.appendChild(this.mapDisplay.getContainer());
     this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
 
@@ -282,7 +303,7 @@ class View {
       let x = model.map[i].x - camX;
       let y = model.map[i].y - camY;
       if (model.map[i].explored) {
-        this.mapDisplay.draw(x, y, model.map[i].symbol, "#444");
+        this.mapDisplay.draw(x, y, model.map[i].symbol, "rgba(40, 40, 40, 0.5)");
       } else {
         this.mapDisplay.draw(x, y, 0);
       }
