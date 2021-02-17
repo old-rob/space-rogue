@@ -1,11 +1,11 @@
-//TEST ROGUELIKE VER 0.1.0
+//TEST ROGUELIKE VER 0.1.8
 
 class Actor {
   constructor(x, y) {
     this.x = x;
     this.y = y;
     this.symbol = "?";
-    this.color = "red";
+    //this.color = "red";
     this.speed = 10;
     this.los = 3;
   }
@@ -42,9 +42,9 @@ class Player extends Actor {
   constructor(x, y) {
     super(x, y);
     this.symbol = "@";
-    this.color = "#ff0";
-    this.maxOxygen = 700;
-    this.oxygen = 700;
+    //this.color = "#ff0";
+    this.maxOxygen = 1000;
+    this.oxygen = 1000;
   }
   //methods
   act() {
@@ -218,7 +218,28 @@ class View {
     this.statsDisplay = new ROT.Display({width:18, height:35});
     document.body.appendChild(this.statsDisplay.getContainer());
 
-    this.mapDisplay = new ROT.Display({width:this.width, height:this.height, forceSquareRatio: true});
+    let tileSet = document.createElement("img");
+    tileSet.src = "./images/tiles_greymoon.png";
+
+    let options = {
+        layout: "tile",
+        bg: "transparent",
+        tileWidth: 16,
+        tileHeight: 16,
+        tileSet: tileSet,
+        tileMap: {
+            "@": [0, 0],
+            ".": [0, 16],
+            "#": [64, 16],
+            "C": [0, 48],
+        },
+        tileColorize: true,
+        width: this.width,
+        height: this.height,
+    }
+
+    this.mapDisplay = new ROT.Display(options);
+    //this.mapDisplay = new ROT.Display({width:this.width, height:this.height, forceSquareRatio: true});
     document.body.appendChild(this.mapDisplay.getContainer());
     this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
 
@@ -282,21 +303,19 @@ class View {
       let x = model.map[i].x - camX;
       let y = model.map[i].y - camY;
       if (model.map[i].explored) {
-        this.mapDisplay.draw(x, y, model.map[i].symbol, "#444");
+        this.mapDisplay.draw(x, y, model.map[i].symbol, "rgba(40, 40, 40, 0.5)");
       } else {
         this.mapDisplay.draw(x, y, 0);
       }
 
     }
-    //Draw player
-    /*this.mapDisplay.draw(model.player.x - camX, model.player.y - camY,
-      model.player.symbol, model.player.color);*/
+    //Draw all visible tiles and actors
     for (let tile of fovTiles) {
       tile.explored = true;
-      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol);
+      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol, "transparent");
       let actor = tile.occupant;
       if (actor) {
-        this.mapDisplay.draw(actor.x - camX, actor.y - camY, actor.symbol, actor.color);
+        this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.symbol, actor.symbol], "transparent");
       }
     }
   }
