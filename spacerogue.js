@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.1.8
+//TEST ROGUELIKE VER 0.1.9
 
 class Actor {
   constructor(x, y) {
@@ -303,7 +303,7 @@ class View {
       let x = model.map[i].x - camX;
       let y = model.map[i].y - camY;
       if (model.map[i].explored) {
-        this.mapDisplay.draw(x, y, model.map[i].symbol, "rgba(40, 40, 40, 0.5)");
+        this.mapDisplay.draw(x, y, model.map[i].symbol, "rgba(20, 20, 20, 0.7)");
       } else {
         this.mapDisplay.draw(x, y, 0);
       }
@@ -315,7 +315,9 @@ class View {
       this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol, "transparent");
       let actor = tile.occupant;
       if (actor) {
-        this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.symbol, actor.symbol], "transparent");
+        this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.symbol, actor.symbol], "rgba(20, 20, 20, 0.1)");
+        //drawing as transparent makes it have the fog of war shading for some reason
+        //so here we draw with a small shadow
       }
     }
   }
