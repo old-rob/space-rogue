@@ -1,11 +1,11 @@
-//TEST ROGUELIKE VER 0.1.7
+//TEST ROGUELIKE VER 0.1.8
 
 class Actor {
   constructor(x, y) {
     this.x = x;
     this.y = y;
     this.symbol = "?";
-    this.color = "red";
+    //this.color = "red";
     this.speed = 10;
     this.los = 3;
   }
@@ -42,7 +42,7 @@ class Player extends Actor {
   constructor(x, y) {
     super(x, y);
     this.symbol = "@";
-    this.color = "#ff0";
+    //this.color = "#ff0";
     this.maxOxygen = 1000;
     this.oxygen = 1000;
   }
@@ -309,15 +309,13 @@ class View {
       }
 
     }
-    //Draw player
-    /*this.mapDisplay.draw(model.player.x - camX, model.player.y - camY,
-      model.player.symbol, model.player.color);*/
+    //Draw all visible tiles and actors
     for (let tile of fovTiles) {
       tile.explored = true;
-      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol);
+      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol, "transparent");
       let actor = tile.occupant;
       if (actor) {
-        this.mapDisplay.draw(actor.x - camX, actor.y - camY, actor.symbol, actor.color);
+        this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.symbol, actor.symbol], "transparent");
       }
     }
   }
