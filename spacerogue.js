@@ -193,10 +193,10 @@ class LocationGenerator {
   }
 
   // [21, 22, 44, 46, 47]
-  createActor(type, location, freeIndexs) {
-    let index = freeIndexs[Math.floor(ROT.RNG.getUniform() * freeIndexs.length)];
+  createActor(type, location, freeIndexes) {
+    let index = freeIndexes[Math.floor(ROT.RNG.getUniform() * freeIndexes.length)];
     let actor = new type(this.getX(index), this.getY(index));
-    this.location.map[index].occupant = actor;
+    location.map[index].occupant = actor;
     if (type === Player) {
       model.player = actor;
     } else {
