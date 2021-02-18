@@ -166,8 +166,8 @@ class Model {
     this.actors = location.actors;
 
     this.map[location.landingIndex].occupant = this.player;
-    this.player.x = this.getX(location.landingIndex);
-    this.player.y = this.getY(location.landingIndex);
+    this.player.x = location.landingIndex % this.width;
+    this.player.y = Math.floor(location.landingIndex/this.width);
   }
 }
 
