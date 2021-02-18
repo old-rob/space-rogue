@@ -76,8 +76,8 @@ class Player extends Actor {
     let newX = this.x + dir[0];
     let newY = this.y + dir[1];
 
-    let currentIndex = LocationGenerator.getIndex(this.x, this.y);
-    let newIndex = LocationGenerator.getIndex(newX, newY);
+    let currentIndex = this.x + model.width * this.y;
+    let newIndex = newX + model.width * newY;
     let currentTile = model.map[currentIndex];
     let newTile = model.map[newIndex];
 
@@ -112,8 +112,8 @@ class Crab extends Actor {
       let x = path[0][0];
       let y = path[0][1];
 
-      let currentTile = model.map[LocationGenerator.getIndex(this.x, this.y)]
-      let newTile = model.map[LocationGenerator.getIndex(x, y)]
+      let currentTile = model.map[this.x + model.width * this.y]
+      let newTile = model.map[x + model.width * y]
 
       if (newTile.occupant) {
         return;
@@ -213,10 +213,10 @@ class LocationGenerator {
     }
   }
 
-  generateTestLocation(height, width) {
-    let testLocation = new Location(height, width);
+  generateTestLocation() {
+    let testLocation = new Location(this.height, this.width);
 
-    let digger = new ROT.Map.Digger(height, width);
+    let digger = new ROT.Map.Digger(this.height, this.width);
     let freeCells = [];
     let digCallback = function(x, y, value) {
         let index = this.getIndex(x, y);
@@ -306,7 +306,7 @@ class View {
 
   /* FOV input callback */
   lightPasses(x, y) {
-    let tile = LocationGenerator.getTileAt(x, y);
+    let tile = model.map[x + model.width * y];
     if (tile) {
       return tile.translucent;
     } else {
@@ -321,7 +321,7 @@ class View {
 
     /* output callback */
     view.fov.compute(model.player.x, model.player.y, model.player.los, function(x, y, r, visibility) {
-        fovTiles.push(model.map[LocationGenerator.getIndex(x, y)]);
+        fovTiles.push(model.map[x + model.width * y]);
     });
 
     for (let i = 0; i < model.map.length; i++) {
@@ -389,7 +389,7 @@ let generator = new LocationGenerator(100, 100)
 
 window.addEventListener("load", function() {
   model = new Model(100, 100);
-  model.loadLocation(generator.generateTestLocation(100, 100));
+  model.loadLocation(generator.generateTestLocation());
   view = new View(35, 45);
   view.initialize();
   view.updateDisplay(model);
