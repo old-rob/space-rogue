@@ -231,7 +231,7 @@ class LocationGenerator {
     digger.create(digCallback.bind(this));
 
     //This needs to be fixed later to create your ship and all
-    testLocation.landingIndex = freeIndexs[Math.floor(ROT.RNG.getUniform() * freeIndexs.length)];
+    testLocation.landingIndex = freeCells[Math.floor(ROT.RNG.getUniform() * freeCells.length)];
 
     //this.generateStars(10, freeCells);
     this.createActor(Crab, testLocation, freeCells);
