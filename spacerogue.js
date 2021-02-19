@@ -168,6 +168,8 @@ class Model {
     this.map[location.landingIndex].occupant = this.player;
     this.player.x = location.landingIndex % this.width;
     this.player.y = Math.floor(location.landingIndex/this.width);
+
+    engine.reset();
   }
 }
 
@@ -365,6 +367,7 @@ class View {
 
 class Engine {
   constructor() {
+    this.run = true;
     this.scheduler = new ROT.Scheduler.Speed();
     if (model.player) { this.scheduler.add(model.player, true); }
     for (let actor of model.actors) {
@@ -372,8 +375,18 @@ class Engine {
     }
   }
 
+  reset() {
+    this.run = false;
+    this.scheduler = new ROT.Scheduler.Speed();
+    if (model.player) { this.scheduler.add(model.player, true); }
+    for (let actor of model.actors) {
+      this.scheduler.add(actor, true);
+    }
+    this.run = true;
+  }
+
   async run() {
-    while (true) {
+    while (this.run) {
       let actor = this.scheduler.next();
       if (!actor) { break; }
       await actor.act(model);
