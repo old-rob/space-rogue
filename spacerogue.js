@@ -43,8 +43,10 @@ class Player extends Actor {
     super(x, y);
     this.symbol = "@";
     //this.color = "#ff0";
-    this.maxOxygen = 1000;
-    this.oxygen = 1000;
+    this.maxOxygen = 750;
+    this.oxygen = 750;
+    this.maxEnergy = 250;
+    this.energy = 250;
   }
   //methods
   act() {
@@ -354,8 +356,8 @@ class View {
     this.statsDisplay.drawText(1, 1, "Oxygen:");
     this.statsDisplay.drawText(1, 2, model.player.oxygen + "/" + model.player.maxOxygen);
 
-    this.statsDisplay.drawText(1, 4, "Oxygen:");
-    this.statsDisplay.drawText(1, 5, model.player.oxygen + "/" + model.player.maxOxygen);
+    this.statsDisplay.drawText(1, 4, "Energy:");
+    this.statsDisplay.drawText(1, 5, model.player.energy + "/" + model.player.maxEnergy);
 
     //model.player
   }
