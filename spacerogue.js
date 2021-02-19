@@ -170,6 +170,7 @@ class Model {
     this.player.y = Math.floor(location.landingIndex/this.width);
 
     if (engine) { engine.reset(); }
+    if (view) { view.updateDisplay(); }
   }
 }
 
