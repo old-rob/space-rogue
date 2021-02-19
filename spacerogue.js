@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.1.9
+//TEST ROGUELIKE VER 0.2.2
 
 class Actor {
   constructor(x, y) {
@@ -43,8 +43,10 @@ class Player extends Actor {
     super(x, y);
     this.symbol = "@";
     //this.color = "#ff0";
-    this.maxOxygen = 1000;
-    this.oxygen = 1000;
+    this.maxOxygen = 750;
+    this.oxygen = 750;
+    this.maxEnergy = 250;
+    this.energy = 250;
   }
   //methods
   act() {
@@ -76,8 +78,8 @@ class Player extends Actor {
     let newX = this.x + dir[0];
     let newY = this.y + dir[1];
 
-    let currentIndex = model.getIndex(this.x, this.y);
-    let newIndex = model.getIndex(newX, newY);
+    let currentIndex = this.x + model.width * this.y;
+    let newIndex = newX + model.width * newY;
     let currentTile = model.map[currentIndex];
     let newTile = model.map[newIndex];
 
@@ -112,8 +114,8 @@ class Crab extends Actor {
       let x = path[0][0];
       let y = path[0][1];
 
-      let currentTile = model.map[model.getIndex(this.x, this.y)]
-      let newTile = model.map[model.getIndex(x, y)]
+      let currentTile = model.map[this.x + model.width * this.y]
+      let newTile = model.map[x + model.width * y]
 
       if (newTile.occupant) {
         return;
@@ -140,13 +142,46 @@ class Tile {
   }
 }
 
-class Model {
+class Location {
   constructor(height, width) {
     this.height = height;
     this.width = width;
     this.map = [];
     this.actors = [];
-    this.player = null;
+    this.landingIndex = [0, 0];
+  }
+}
+
+class Model {
+  constructor() {
+    this.height = 100;
+    this.width = 100;
+    this.map = [];
+    this.actors = [];
+    this.player = new Player(0, 0);
+  }
+
+  loadLocation(location) {
+    this.height = location.height;
+    this.width = location.width;
+    this.map = location.map;
+    this.actors = location.actors;
+
+    this.map[location.landingIndex].occupant = this.player;
+    this.player.x = location.landingIndex % this.width;
+    this.player.y = Math.floor(location.landingIndex/this.width);
+
+    if (engine) { engine.reset(); }
+    if (view) { view.updateDisplay(); }
+  }
+}
+
+
+class LocationGenerator {
+  constructor(height, width, type) {
+    this.height = height;
+    this.width = width;
+    this.type = type;
   }
 
   getIndex(x, y) {
@@ -163,47 +198,51 @@ class Model {
   }
 
   // [21, 22, 44, 46, 47]
-  createActor(type, freeIndexs) {
-    let index = freeIndexs[Math.floor(ROT.RNG.getUniform() * freeIndexs.length)];
+  createActor(type, location, freeIndexes) {
+    let index = freeIndexes[Math.floor(ROT.RNG.getUniform() * freeIndexes.length)];
     let actor = new type(this.getX(index), this.getY(index));
-    this.map[index].occupant = actor;
+    location.map[index].occupant = actor;
     if (type === Player) {
-      this.player = actor;
+      model.player = actor;
     } else {
-      this.actors.push(actor);
+      location.actors.push(actor);
     }
     return actor;
   }
 
-  /*
-  generateStars(numStars, availableCells) {
-    for (let i = 0; i < numStars; i++) {
+  //There is currently no way to see or interact with items
+  generateItems(numItems, item, location, availableCells) {
+    for (let i = 0; i < numItems; i++) {
       let index = Math.floor(ROT.RNG.getUniform() * availableCells.length);
-      let key = availableCells.splice(index, 1)[0];
-      this.map[key] = "*";
+      location.map[index].items.push(item);
     }
   }
-  */
 
-  generateDugMap() {
+  generateTestLocation() {
+    let testLocation = new Location(this.height, this.width);
+
     let digger = new ROT.Map.Digger(this.height, this.width);
     let freeCells = [];
     let digCallback = function(x, y, value) {
         let index = this.getIndex(x, y);
         // We have an empty space
         if (value === 0) {
-          this.map[index] = new Tile(x, y, "empty", ".", true);
+          testLocation.map[index] = new Tile(x, y, "empty", ".", true);
           freeCells.push(index);
         } else {
-          this.map[index] = new Tile(x, y, "wall", "#", false);
+          testLocation.map[index] = new Tile(x, y, "wall", "#", false);
         }
     }
     digger.create(digCallback.bind(this));
 
+    //This needs to be fixed later to create your ship and all
+    testLocation.landingIndex = freeCells[Math.floor(ROT.RNG.getUniform() * freeCells.length)];
+
     //this.generateStars(10, freeCells);
-    this.createActor(Player, freeCells);
-    this.createActor(Crab, freeCells);
-    this.createActor(Crab, freeCells);
+    this.createActor(Crab, testLocation, freeCells);
+    this.createActor(Crab, testLocation, freeCells);
+
+    return testLocation;
   }
 
 }
@@ -239,25 +278,16 @@ class View {
     }
 
     this.mapDisplay = new ROT.Display(options);
-    //this.mapDisplay = new ROT.Display({width:this.width, height:this.height, forceSquareRatio: true});
     document.body.appendChild(this.mapDisplay.getContainer());
     this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
 
     this.textDisplay = new ROT.Display({width:74, height:5});
     document.body.appendChild(this.textDisplay.getContainer());
     this.textDisplay.drawText(1, 1, "Welcome to the Cosmos, use WASD to move.", 56);
+
+    this.updateDisplay();
   }
 
-  getCameraPos(playerPos, viewSize, mapSize) {
-    let halfView = viewSize / 2;
-    if (playerPos < halfView) {
-      return 0;
-    } else if (playerPos >= mapSize - halfView) {
-      return mapSize - viewSize;
-    } else {
-      return playerPos - halfView;
-    }
-  }
   getCameraX(playerX, mapSize) {
     let halfView = this.width / 2;
     if (playerX < halfView) {
@@ -281,7 +311,7 @@ class View {
 
   /* FOV input callback */
   lightPasses(x, y) {
-    let tile = model.getTileAt(x, y);
+    let tile = model.map[x + model.width * y];
     if (tile) {
       return tile.translucent;
     } else {
@@ -296,7 +326,7 @@ class View {
 
     /* output callback */
     view.fov.compute(model.player.x, model.player.y, model.player.los, function(x, y, r, visibility) {
-        fovTiles.push(model.map[model.getIndex(x, y)]);
+        fovTiles.push(model.map[x + model.width * y]);
     });
 
     for (let i = 0; i < model.map.length; i++) {
@@ -326,8 +356,8 @@ class View {
     this.statsDisplay.drawText(1, 1, "Oxygen:");
     this.statsDisplay.drawText(1, 2, model.player.oxygen + "/" + model.player.maxOxygen);
 
-    this.statsDisplay.drawText(1, 4, "Oxygen:");
-    this.statsDisplay.drawText(1, 5, model.player.oxygen + "/" + model.player.maxOxygen);
+    this.statsDisplay.drawText(1, 4, "Energy:");
+    this.statsDisplay.drawText(1, 5, model.player.energy + "/" + model.player.maxEnergy);
 
     //model.player
   }
@@ -340,6 +370,7 @@ class View {
 
 class Engine {
   constructor() {
+    this.go = true;
     this.scheduler = new ROT.Scheduler.Speed();
     if (model.player) { this.scheduler.add(model.player, true); }
     for (let actor of model.actors) {
@@ -347,8 +378,18 @@ class Engine {
     }
   }
 
+  reset() {
+    this.go = false;
+    this.scheduler = new ROT.Scheduler.Speed();
+    if (model.player) { this.scheduler.add(model.player, true); }
+    for (let actor of model.actors) {
+      this.scheduler.add(actor, true);
+    }
+    this.go = true;
+  }
+
   async run() {
-    while (true) {
+    while (this.go) {
       let actor = this.scheduler.next();
       if (!actor) { break; }
       await actor.act(model);
@@ -360,10 +401,11 @@ class Engine {
 let model = null;
 let view = null;
 let engine = null;
+let generator = new LocationGenerator(100, 100)
 
 window.addEventListener("load", function() {
   model = new Model(100, 100);
-  model.generateDugMap();
+  model.loadLocation(generator.generateTestLocation());
   view = new View(35, 45);
   view.initialize();
   view.updateDisplay(model);
