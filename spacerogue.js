@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.1.9
+//TEST ROGUELIKE VER 0.2.2
 
 class Actor {
   constructor(x, y) {
