@@ -1,6 +1,6 @@
 # space-rogue
 
-This is a simple roguelike game I am creating in pure Javascript to improve my programming and have fun.
+This is a simple roguelike game I am creating in Javascript to improve my programming and have fun.
 So far it's helped me learn about using libraries and asynchronous javascript, and I hope to learn a lot more about packages and web hosting.
 
 The game is set in the future when intergalactic travel is possible, and you are journeying as far into the depths of space as possible.
