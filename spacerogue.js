@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.1.9
+//TEST ROGUELIKE VER 0.2.2
 
 class Actor {
   constructor(x, y) {
@@ -218,6 +218,19 @@ class LocationGenerator {
     }
   }
 
+  placeShip(location, availableCells) {
+    location.landingIndex = availableCells[Math.floor(ROT.RNG.getUniform() * availableCells.length)];
+    let doorX = this.getX(location.landingIndex);
+    let doorY = this.getY(location.landingIndex);
+
+    location.map[location.landingIndex] = new Tile(doorX, doorY, "ship", "shipDoor", true); //Door
+    location.map[location.landingIndex - 1] = new Tile(doorX - 1, doorY, "wall", "shipLowLeft", true); //lowleft
+    location.map[location.landingIndex + 1] = new Tile(doorX + 1, doorY, "wall", "shipLowRight", true); //lowright
+    location.map[this.getIndex(doorX - 1, doorY - 1)] = new Tile(doorX - 1, doorY - 1, "wall", "shipUpLeft", false); //upleft
+    location.map[this.getIndex(doorX, doorY - 1)] = new Tile(doorX, doorY - 1, "wall", "shipUpMid", false); //upmid
+    location.map[this.getIndex(doorX + 1, doorY - 1)] = new Tile(doorX + 1, doorY - 1, "wall", "shipUpRight", false); //upright
+  }
+
   generateTestLocation() {
     let testLocation = new Location(this.height, this.width);
 
@@ -235,8 +248,7 @@ class LocationGenerator {
     }
     digger.create(digCallback.bind(this));
 
-    //This needs to be fixed later to create your ship and all
-    testLocation.landingIndex = freeCells[Math.floor(ROT.RNG.getUniform() * freeCells.length)];
+    this.placeShip(testLocation, freeCells);
 
     //this.generateStars(10, freeCells);
     this.createActor(Crab, testLocation, freeCells);
@@ -270,7 +282,9 @@ class View {
             "@": [0, 0],
             ".": [0, 16],
             "#": [64, 16],
-            "C": [0, 48],
+            "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
+            "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
+            "C": [0, 64],
         },
         tileColorize: true,
         width: this.width,
