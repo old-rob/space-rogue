@@ -169,7 +169,7 @@ class Model {
     this.player.x = location.landingIndex % this.width;
     this.player.y = Math.floor(location.landingIndex/this.width);
 
-    engine.reset();
+    if (engine) { engine.reset(); }
   }
 }
 
@@ -367,7 +367,7 @@ class View {
 
 class Engine {
   constructor() {
-    this.run = true;
+    this.go = true;
     this.scheduler = new ROT.Scheduler.Speed();
     if (model.player) { this.scheduler.add(model.player, true); }
     for (let actor of model.actors) {
@@ -376,17 +376,17 @@ class Engine {
   }
 
   reset() {
-    this.run = false;
+    this.go = false;
     this.scheduler = new ROT.Scheduler.Speed();
     if (model.player) { this.scheduler.add(model.player, true); }
     for (let actor of model.actors) {
       this.scheduler.add(actor, true);
     }
-    this.run = true;
+    this.go = true;
   }
 
   async run() {
-    while (this.run) {
+    while (this.go) {
       let actor = this.scheduler.next();
       if (!actor) { break; }
       await actor.act(model);
