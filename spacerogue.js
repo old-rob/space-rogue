@@ -69,7 +69,13 @@ class Player extends Actor {
             resolve();
           }
           return;
+        } else if (event.keyCode === 13) /*Enter key*/ {
+          let currentIndex = this.x + model.width * this.y;
+          if (currentIndex === model.landingIndex) {
+            alert("You enter the ship...");
+          }
         }
+
       }
     });
   }
@@ -148,7 +154,7 @@ class Location {
     this.width = width;
     this.map = [];
     this.actors = [];
-    this.landingIndex = [0, 0];
+    this.landingIndex = [0];
   }
 }
 
@@ -166,10 +172,11 @@ class Model {
     this.width = location.width;
     this.map = location.map;
     this.actors = location.actors;
+    this.landingIndex = location.landingIndex;
 
-    this.map[location.landingIndex].occupant = this.player;
-    this.player.x = location.landingIndex % this.width;
-    this.player.y = Math.floor(location.landingIndex/this.width);
+    this.map[this.landingIndex].occupant = this.player;
+    this.player.x = this.landingIndex % this.width;
+    this.player.y = Math.floor(this.landingIndex/this.width);
 
     if (engine) { engine.reset(); }
     if (view) { view.updateDisplay(); }
@@ -218,6 +225,19 @@ class LocationGenerator {
     }
   }
 
+  placeShip(location, availableCells) {
+    location.landingIndex = availableCells[Math.floor(ROT.RNG.getUniform() * availableCells.length)];
+    let doorX = this.getX(location.landingIndex);
+    let doorY = this.getY(location.landingIndex);
+
+    location.map[location.landingIndex] = new Tile(doorX, doorY, "ship", "shipDoor", true); //Door
+    location.map[location.landingIndex - 1] = new Tile(doorX - 1, doorY, "wall", "shipLowLeft", true); //lowleft
+    location.map[location.landingIndex + 1] = new Tile(doorX + 1, doorY, "wall", "shipLowRight", true); //lowright
+    location.map[this.getIndex(doorX - 1, doorY - 1)] = new Tile(doorX - 1, doorY - 1, "wall", "shipUpLeft", false); //upleft
+    location.map[this.getIndex(doorX, doorY - 1)] = new Tile(doorX, doorY - 1, "wall", "shipUpMid", false); //upmid
+    location.map[this.getIndex(doorX + 1, doorY - 1)] = new Tile(doorX + 1, doorY - 1, "wall", "shipUpRight", false); //upright
+  }
+
   generateTestLocation() {
     let testLocation = new Location(this.height, this.width);
 
@@ -235,8 +255,7 @@ class LocationGenerator {
     }
     digger.create(digCallback.bind(this));
 
-    //This needs to be fixed later to create your ship and all
-    testLocation.landingIndex = freeCells[Math.floor(ROT.RNG.getUniform() * freeCells.length)];
+    this.placeShip(testLocation, freeCells);
 
     //this.generateStars(10, freeCells);
     this.createActor(Crab, testLocation, freeCells);
@@ -270,7 +289,9 @@ class View {
             "@": [0, 0],
             ".": [0, 16],
             "#": [64, 16],
-            "C": [0, 48],
+            "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
+            "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
+            "C": [0, 64],
         },
         tileColorize: true,
         width: this.width,
