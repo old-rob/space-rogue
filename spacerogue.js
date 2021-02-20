@@ -69,7 +69,13 @@ class Player extends Actor {
             resolve();
           }
           return;
+        } else if (event.keyCode === 13) /*Enter key*/ {
+          let currentIndex = this.x + model.width * this.y;
+          if (currentIndex === model.landingIndex) {
+            alert("You enter the ship...");
+          }
         }
+
       }
     });
   }
@@ -148,7 +154,7 @@ class Location {
     this.width = width;
     this.map = [];
     this.actors = [];
-    this.landingIndex = [0, 0];
+    this.landingIndex = [0];
   }
 }
 
@@ -166,10 +172,11 @@ class Model {
     this.width = location.width;
     this.map = location.map;
     this.actors = location.actors;
+    this.landingIndex = location.landingIndex;
 
-    this.map[location.landingIndex].occupant = this.player;
-    this.player.x = location.landingIndex % this.width;
-    this.player.y = Math.floor(location.landingIndex/this.width);
+    this.map[this.landingIndex].occupant = this.player;
+    this.player.x = this.landingIndex % this.width;
+    this.player.y = Math.floor(this.landingIndex/this.width);
 
     if (engine) { engine.reset(); }
     if (view) { view.updateDisplay(); }
