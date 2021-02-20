@@ -4,7 +4,7 @@ class Actor {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.symbol = "?";
+    this.sprite = "?";
     //this.color = "red";
     this.speed = 10;
     this.los = 3;
@@ -41,7 +41,7 @@ class Actor {
 class Player extends Actor {
   constructor(x, y) {
     super(x, y);
-    this.symbol = "@";
+    this.sprite = "@";
     //this.color = "#ff0";
     this.maxOxygen = 750;
     this.oxygen = 750;
@@ -108,7 +108,7 @@ class Player extends Actor {
 class Crab extends Actor {
   constructor(x, y) {
     super(x, y);
-    this.symbol = "C";
+    this.sprite = "C";
     this.speed = 5;
   }
   act() {
@@ -138,11 +138,11 @@ class Crab extends Actor {
 class Tile {
   occupant = null;
   items = null;
-  constructor(x, y, type, symbol, lucent) {
+  constructor(x, y, type, sprite, lucent) {
     this.x = x;
     this.y = y;
     this.type = type;
-    this.symbol = symbol;
+    this.sprite = sprite;
     this.explored = false;
     this.translucent = lucent;
   }
@@ -354,7 +354,7 @@ class View {
       let x = model.map[i].x - camX;
       let y = model.map[i].y - camY;
       if (model.map[i].explored) {
-        this.mapDisplay.draw(x, y, model.map[i].symbol, "rgba(20, 20, 20, 0.7)");
+        this.mapDisplay.draw(x, y, model.map[i].sprite, "rgba(20, 20, 20, 0.7)");
       } else {
         this.mapDisplay.draw(x, y, 0);
       }
@@ -363,10 +363,10 @@ class View {
     //Draw all visible tiles and actors
     for (let tile of fovTiles) {
       tile.explored = true;
-      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol, "transparent");
+      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.sprite, "transparent");
       let actor = tile.occupant;
       if (actor) {
-        this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.symbol, actor.symbol], "rgba(20, 20, 20, 0.1)");
+        this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.sprite, actor.sprite], "rgba(20, 20, 20, 0.1)");
         //drawing as transparent makes it have the fog of war shading for some reason
         //so here we draw with a small shadow
       }
