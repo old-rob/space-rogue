@@ -73,6 +73,7 @@ class Player extends Actor {
           let currentIndex = this.x + model.width * this.y;
           if (currentIndex === model.landingIndex) {
             alert("You enter the ship...");
+            model.loadLocation(generator.generateTestLocation());
           }
         }
 
