@@ -1,11 +1,10 @@
-//TEST ROGUELIKE VER 0.2.2
+//TEST ROGUELIKE VER 0.2.4
 
 class Actor {
   constructor(x, y) {
     this.x = x;
     this.y = y;
     this.sprite = "?";
-    //this.color = "red";
     this.speed = 10;
     this.los = 3;
   }
