@@ -72,6 +72,9 @@ class Player extends Actor {
           if (model.map[currentIndex].type === "shipDoor") {
             view.notify("You enter the ship...");
             model.loadLocation(shipMenu);
+          } else if (model.map[currentIndex].type === "navigation") {
+            view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
+            model.loadLocation(generator.generateTestLocation());
           }
         }
 
@@ -391,6 +394,7 @@ class View {
       this.mainWindow.removeChild(this.mainWindow.firstChild);
     }
     this.mainWindow.appendChild(this.mapDisplay.getContainer());
+    //TO DO: Implement elt and use it instead of all the other stuff you are doin
   }
 
   getCameraX(playerX, mapSize) {
