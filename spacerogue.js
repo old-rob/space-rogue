@@ -333,11 +333,15 @@ class View {
     this.width = width;
     this.tileSet = document.createElement("img");
     this.notifications = ["Welcome message."];
+    this.statsWindow = document.getElementById("stats_window");
+    this.mainWindow = document.getElementById("main_window");
+    this.textWindow = document.getElementById("text_window");
   }
 
   initialize() {
     this.statsDisplay = new ROT.Display({width:18, height:35});
-    document.body.appendChild(this.statsDisplay.getContainer());
+    //document.body.appendChild(this.statsDisplay.getContainer());
+    this.statsWindow.appendChild(this.statsDisplay.getContainer());
 
     this.setTiles("./images/tiles_greymoon.png", {
         "player": [0, 0],
@@ -352,7 +356,8 @@ class View {
     this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
 
     this.textDisplay = new ROT.Display({width:74, height:7});
-    document.body.appendChild(this.textDisplay.getContainer());
+    //document.body.appendChild(this.textDisplay.getContainer());
+    this.textWindow.appendChild(this.textDisplay.getContainer());
     this.notify("Use WASD to move.");
 
     this.updateDisplay();
@@ -382,7 +387,10 @@ class View {
     }
 
     this.mapDisplay = new ROT.Display(options);
-    document.body.appendChild(this.mapDisplay.getContainer());
+    while (this.mainWindow.hasChildNodes()) {
+      this.mainWindow.removeChild(this.mainWindow.firstChild);
+    }
+    this.mainWindow.appendChild(this.mapDisplay.getContainer());
   }
 
   getCameraX(playerX, mapSize) {
