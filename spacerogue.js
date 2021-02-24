@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.2.5
+//TEST ROGUELIKE VER 0.2.7
 
 class Actor {
   constructor(x, y) {
@@ -94,6 +94,8 @@ class Player extends Actor {
       return false;
     } else if (newTile.type === "shipDoor") {
       view.notify("Press Enter to board ship.");
+    } else if (newTile.type === "navigation") {
+      view.notify("Naivigation: Press Enter to set course.");
     }
 
     currentTile.occupant = null;
@@ -116,7 +118,7 @@ class Crab extends Actor {
     let path = this.getPathTo(model.player.x, model.player.y);
     path.shift(); /* remove position of actor */
     if (path.length <= 1) {
-      view.notify("Aculeate Carcen says: Tag, you're it!");
+      view.notify("Aculeate Carcinid says: Tag, you're it!");
     } else {
       let x = path[0][0];
       let y = path[0][1];
@@ -157,6 +159,7 @@ class Location {
     this.revealed = false;
     this.actors = [];
     this.landingIndex = [0];
+    this.tileset = "./images/tiles_greymoon.png";
   }
 }
 
@@ -183,7 +186,10 @@ class Model {
     this.player.y = Math.floor(this.landingIndex/this.width);
 
     if (engine) { engine.reset(); }
-    if (view) { view.updateDisplay(); }
+    if (view) {
+      view.setTiles(location.tileset, location.tilemap);
+      view.updateDisplay();
+    }
   }
 }
 
@@ -265,6 +271,16 @@ class LocationGenerator {
     this.createActor(Crab, testLocation, freeCells);
     this.createActor(Crab, testLocation, freeCells);
 
+    testLocation.tileset = "./images/tiles_greymoon.png";
+    testLocation.tilemap = {
+      "player": [0, 0],
+      "floor": [0, 16],
+      "wall": [64, 16],
+      "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
+      "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
+      "stars": [64, 64],
+      "crab": [0, 64],
+    }
     return testLocation;
   }
 
@@ -292,6 +308,12 @@ class LocationGenerator {
           break;
         case "v":
           location.map[i] = new Tile(x, y, "wall", "wall", true);
+          break;
+        case "~":
+          location.map[i] = new Tile(x, y, "navigation", "floor", true);
+          break;
+        case "=":
+          location.map[i] = new Tile(x, y, "wall", "computer", true);
           break;
         case "@":
           location.landingIndex = i;
@@ -490,9 +512,45 @@ let model = null;
 let view = null;
 let engine = null;
 let generator = new LocationGenerator(100, 100);
-let shipString = "************************************************************#####*******************#.....#*************^***#.......#***^********|***#.......#***|********||*#...###...#*||********||*#..#...#..#*||********||#...........#||********||#...........#||********||#...........#||********||####.....####||********||#...........#||********||#.....@.....#||********||#...........#||********||####.....####||********||#...........#||********||#...........#||********||#...........#||********||#...#####...#||********||#..#*****#..#||********||###*******###||********||#|*********|#||********v||v*********v||v********|**|*********|**|******************************************************"
+let shipString =
+"*************************" +
+"*************************" +
+"**********#####**********" +
+"*********#.....#*********" +
+"****^***#.......#***^****" +
+"****|***#.......#***|****" +
+"****||*#...===...#*||****" +
+"****||*#..#~~~#..#*||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||####.....####||****" +
+"****||#...........#||****" +
+"****||#.....@.....#||****" +
+"****||#...........#||****" +
+"****||####.....####||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||#...#####...#||****" +
+"****||#..#*****#..#||****" +
+"****||###*******###||****" +
+"****||#|*********|#||****" +
+"****v||v*********v||v****" +
+"****|**|*********|**|****" +
+"*************************" +
+"*************************";
+
 let shipMenu = generator.createFromString(shipString, 27, 25);
 shipMenu.revealed = true;
+shipMenu.tileset = "./images/tiles_ship.png";
+shipMenu.tilemap = {
+  "player": [0, 0],
+  "floor": [0, 16],
+  "stars": [48, 16],
+  "wall": [64, 16],
+  "computer": [0, 64],
+}
 
 window.addEventListener("load", function() {
   model = new Model(100, 100);
@@ -503,37 +561,3 @@ window.addEventListener("load", function() {
   engine = new Engine();
   engine.run();
 });
-
-
-
-/*
-"
-*************************
-*************************
-**********#####**********
-*********#.....#*********
-****^***#.......#***^****
-****|***#.......#***|****
-****||*#...###...#*||****
-****||*#..#...#..#*||****
-****||#...........#||****
-****||#...........#||****
-****||#...........#||****
-****||####.....####||****
-****||#...........#||****
-****||#.....@.....#||****
-****||#...........#||****
-****||####.....####||****
-****||#...........#||****
-****||#...........#||****
-****||#...........#||****
-****||#...#####...#||****
-****||#..#*****#..#||****
-****||###*******###||****
-****||#|*********|#||****
-****v||v*********v||v****
-****|**|*********|**|****
-*************************
-*************************
-"
-*/
