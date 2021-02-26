@@ -74,6 +74,7 @@ class Player extends Actor {
             model.loadLocation(shipMenu);
           } else if (model.map[currentIndex].type === "navigation") {
             view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
+            model.map[currentIndex].occupant = null;
             model.loadLocation(generator.generateTestLocation());
           }
         }
@@ -393,8 +394,9 @@ class View {
     while (this.mainWindow.hasChildNodes()) {
       this.mainWindow.removeChild(this.mainWindow.firstChild);
     }
-    this.mainWindow.appendChild(this.mapDisplay.getContainer());
-    //TO DO: Implement elt and use it instead of all the other stuff you are doin
+    //this.mainWindow.appendChild(this.mapDisplay.getContainer());
+    //this.mainWindow.appendChild(elt("div", {class: "game"}, this.mapDisplay.getContainer());
+    this.mainWindow.appendChild(elt("div", {style: "display:inline-block; position:absolute; width:100%; left:20%"}, this.mapDisplay.getContainer()));
   }
 
   getCameraX(playerX, mapSize) {
@@ -552,6 +554,21 @@ let shipString =
 "****|**|*********|**|****" +
 "*************************" +
 "*************************";
+
+//elt("div", {class: "game"}, drawGrid(level));
+function elt(type, attrs, ...children) {
+  let dom = document.createElement(type);
+  if (attrs) {
+    for (let attr of Object.keys(attrs)) {
+      dom.setAttribute(attr, attrs[attr]);
+    }
+  }
+  for (let child of children) {
+    if (typeof child != "string") dom.appendChild(child);
+    else dom.appendChild(document.createTextNode(child));
+  }
+  return dom;
+}
 
 let shipMenu = generator.createFromString(shipString, 27, 25);
 shipMenu.revealed = true;
