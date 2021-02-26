@@ -1,11 +1,10 @@
-//TEST ROGUELIKE VER 0.2.2
+//TEST ROGUELIKE VER 0.2.7
 
 class Actor {
   constructor(x, y) {
     this.x = x;
     this.y = y;
-    this.symbol = "?";
-    //this.color = "red";
+    this.sprite = "?";
     this.speed = 10;
     this.los = 3;
   }
@@ -41,8 +40,7 @@ class Actor {
 class Player extends Actor {
   constructor(x, y) {
     super(x, y);
-    this.symbol = "@";
-    //this.color = "#ff0";
+    this.sprite = "player";
     this.maxOxygen = 750;
     this.oxygen = 750;
     this.maxEnergy = 250;
@@ -71,8 +69,12 @@ class Player extends Actor {
           return;
         } else if (event.keyCode === 13) /*Enter key*/ {
           let currentIndex = this.x + model.width * this.y;
-          if (currentIndex === model.landingIndex) {
-            alert("You enter the ship...");
+          if (model.map[currentIndex].type === "shipDoor") {
+            view.notify("You enter the ship...");
+            model.loadLocation(shipMenu);
+          } else if (model.map[currentIndex].type === "navigation") {
+            view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
+            model.map[currentIndex].occupant = null;
             model.loadLocation(generator.generateTestLocation());
           }
         }
@@ -94,6 +96,10 @@ class Player extends Actor {
       return false;
     } else if (newTile.occupant) {
       return false;
+    } else if (newTile.type === "shipDoor") {
+      view.notify("Press Enter to board ship.");
+    } else if (newTile.type === "navigation") {
+      view.notify("Naivigation: Press Enter to set course.");
     }
 
     currentTile.occupant = null;
@@ -109,14 +115,14 @@ class Player extends Actor {
 class Crab extends Actor {
   constructor(x, y) {
     super(x, y);
-    this.symbol = "C";
+    this.sprite = "crab";
     this.speed = 5;
   }
   act() {
     let path = this.getPathTo(model.player.x, model.player.y);
     path.shift(); /* remove position of actor */
     if (path.length <= 1) {
-      alert("Tag, you're it!");
+      view.notify("Aculeate Carcinid says: Tag, you're it!");
     } else {
       let x = path[0][0];
       let y = path[0][1];
@@ -139,11 +145,11 @@ class Crab extends Actor {
 class Tile {
   occupant = null;
   items = null;
-  constructor(x, y, type, symbol, lucent) {
+  constructor(x, y, type, sprite, lucent) {
     this.x = x;
     this.y = y;
     this.type = type;
-    this.symbol = symbol;
+    this.sprite = sprite;
     this.explored = false;
     this.translucent = lucent;
   }
@@ -154,8 +160,10 @@ class Location {
     this.height = height;
     this.width = width;
     this.map = [];
+    this.revealed = false;
     this.actors = [];
     this.landingIndex = [0];
+    this.tileset = "./images/tiles_greymoon.png";
   }
 }
 
@@ -164,6 +172,7 @@ class Model {
     this.height = 100;
     this.width = 100;
     this.map = [];
+    this.revealed = false;
     this.actors = [];
     this.player = new Player(0, 0);
   }
@@ -172,6 +181,7 @@ class Model {
     this.height = location.height;
     this.width = location.width;
     this.map = location.map;
+    this.revealed = location.revealed;
     this.actors = location.actors;
     this.landingIndex = location.landingIndex;
 
@@ -180,7 +190,10 @@ class Model {
     this.player.y = Math.floor(this.landingIndex/this.width);
 
     if (engine) { engine.reset(); }
-    if (view) { view.updateDisplay(); }
+    if (view) {
+      view.setTiles(location.tileset, location.tilemap);
+      view.updateDisplay();
+    }
   }
 }
 
@@ -231,7 +244,7 @@ class LocationGenerator {
     let doorX = this.getX(location.landingIndex);
     let doorY = this.getY(location.landingIndex);
 
-    location.map[location.landingIndex] = new Tile(doorX, doorY, "ship", "shipDoor", true); //Door
+    location.map[location.landingIndex] = new Tile(doorX, doorY, "shipDoor", "shipDoor", true); //Door
     location.map[location.landingIndex - 1] = new Tile(doorX - 1, doorY, "wall", "shipLowLeft", true); //lowleft
     location.map[location.landingIndex + 1] = new Tile(doorX + 1, doorY, "wall", "shipLowRight", true); //lowright
     location.map[this.getIndex(doorX - 1, doorY - 1)] = new Tile(doorX - 1, doorY - 1, "wall", "shipUpLeft", false); //upleft
@@ -248,10 +261,10 @@ class LocationGenerator {
         let index = this.getIndex(x, y);
         // We have an empty space
         if (value === 0) {
-          testLocation.map[index] = new Tile(x, y, "empty", ".", true);
+          testLocation.map[index] = new Tile(x, y, "floor", "floor", true);
           freeCells.push(index);
         } else {
-          testLocation.map[index] = new Tile(x, y, "wall", "#", false);
+          testLocation.map[index] = new Tile(x, y, "wall", "wall", false);
         }
     }
     digger.create(digCallback.bind(this));
@@ -262,52 +275,128 @@ class LocationGenerator {
     this.createActor(Crab, testLocation, freeCells);
     this.createActor(Crab, testLocation, freeCells);
 
+    testLocation.tileset = "./images/tiles_greymoon.png";
+    testLocation.tilemap = {
+      "player": [0, 0],
+      "floor": [0, 16],
+      "wall": [64, 16],
+      "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
+      "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
+      "stars": [64, 64],
+      "crab": [0, 64],
+    }
     return testLocation;
   }
 
+  createFromString(string, h, w) {
+    let location = new Location(h, w);
+    for (let i = 0; i < string.length; i++) {
+      let x = i % w;
+      let y = Math.floor(i/w);
+
+      switch (string[i]) {
+        case "*":
+          location.map[i] = new Tile(x, y, "space", "stars", true);
+          break;
+        case "#":
+          location.map[i] = new Tile(x, y, "wall", "wall", true);
+          break;
+        case ".":
+          location.map[i] = new Tile(x, y, "floor", "floor", true);
+          break;
+        case "^":
+          location.map[i] = new Tile(x, y, "wall", "wall", true);
+          break;
+        case "|":
+          location.map[i] = new Tile(x, y, "wall", "wall", true);
+          break;
+        case "v":
+          location.map[i] = new Tile(x, y, "wall", "wall", true);
+          break;
+        case "~":
+          location.map[i] = new Tile(x, y, "navigation", "floor", true);
+          break;
+        case "=":
+          location.map[i] = new Tile(x, y, "wall", "computer", true);
+          break;
+        case "@":
+          location.landingIndex = i;
+          location.map[i] = new Tile(x, y, "floor", "floor", true);
+          break;
+        default:
+          alert(string[i]);
+      }
+    }
+    return location;
+  }
 }
 
 class View {
   constructor(height, width) {
     this.height = height;
     this.width = width;
+    this.tileSet = document.createElement("img");
+    this.notifications = ["Welcome message."];
+    this.statsWindow = document.getElementById("stats_window");
+    this.mainWindow = document.getElementById("main_window");
+    this.textWindow = document.getElementById("text_window");
   }
 
   initialize() {
     this.statsDisplay = new ROT.Display({width:18, height:35});
-    document.body.appendChild(this.statsDisplay.getContainer());
+    //document.body.appendChild(this.statsDisplay.getContainer());
+    this.statsWindow.appendChild(this.statsDisplay.getContainer());
 
-    let tileSet = document.createElement("img");
-    tileSet.src = "./images/tiles_greymoon.png";
+    this.setTiles("./images/tiles_greymoon.png", {
+        "player": [0, 0],
+        "floor": [0, 16],
+        "wall": [64, 16],
+        "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
+        "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
+        "stars": [64, 64],
+        "crab": [0, 64],
+    });
 
+    this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
+
+    this.textDisplay = new ROT.Display({width:74, height:7});
+    //document.body.appendChild(this.textDisplay.getContainer());
+    this.textWindow.appendChild(this.textDisplay.getContainer());
+    this.notify("Use WASD to move.");
+
+    this.updateDisplay();
+  }
+
+  notify(text) {
+    this.textDisplay.clear();
+    if (this.notifications.length > 2) { this.notifications.shift(); }
+    this.notifications.push(text);
+    for (let i = 0; i < this.notifications.length; i++) {
+      this.textDisplay.drawText(1, (i * 2) + 1, this.notifications[i]);
+    }
+  }
+
+  setTiles(tilesetSource, tileMappings) {
+    this.tileSet.src = tilesetSource;
     let options = {
         layout: "tile",
         bg: "transparent",
         tileWidth: 16,
         tileHeight: 16,
-        tileSet: tileSet,
-        tileMap: {
-            "@": [0, 0],
-            ".": [0, 16],
-            "#": [64, 16],
-            "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
-            "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
-            "C": [0, 64],
-        },
+        tileSet: this.tileSet,
+        tileMap: tileMappings,
         tileColorize: true,
         width: this.width,
         height: this.height,
     }
 
     this.mapDisplay = new ROT.Display(options);
-    document.body.appendChild(this.mapDisplay.getContainer());
-    this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
-
-    this.textDisplay = new ROT.Display({width:74, height:5});
-    document.body.appendChild(this.textDisplay.getContainer());
-    this.textDisplay.drawText(1, 1, "Welcome to the Cosmos, use WASD to move.", 56);
-
-    this.updateDisplay();
+    while (this.mainWindow.hasChildNodes()) {
+      this.mainWindow.removeChild(this.mainWindow.firstChild);
+    }
+    //this.mainWindow.appendChild(this.mapDisplay.getContainer());
+    //this.mainWindow.appendChild(elt("div", {class: "game"}, this.mapDisplay.getContainer());
+    this.mainWindow.appendChild(elt("div", {style: "display:inline-block; position:absolute; width:100%; left:20%"}, this.mapDisplay.getContainer()));
   }
 
   getCameraX(playerX, mapSize) {
@@ -344,34 +433,47 @@ class View {
   updateMapDisplay() {
     let camX = this.getCameraX(model.player.x, model.width);
     let camY = this.getCameraY(model.player.y, model.height);
-    let fovTiles = [];
+    if (model.revealed === false) {
+      let fovTiles = [];
 
-    /* output callback */
-    view.fov.compute(model.player.x, model.player.y, model.player.los, function(x, y, r, visibility) {
-        fovTiles.push(model.map[x + model.width * y]);
-    });
+      /* output callback */
+      view.fov.compute(model.player.x, model.player.y, model.player.los, function(x, y, r, visibility) {
+          fovTiles.push(model.map[x + model.width * y]);
+      });
 
-    for (let i = 0; i < model.map.length; i++) {
-      let x = model.map[i].x - camX;
-      let y = model.map[i].y - camY;
-      if (model.map[i].explored) {
-        this.mapDisplay.draw(x, y, model.map[i].symbol, "rgba(20, 20, 20, 0.7)");
-      } else {
-        this.mapDisplay.draw(x, y, 0);
+      for (let i = 0; i < model.map.length; i++) {
+        let x = model.map[i].x - camX;
+        let y = model.map[i].y - camY;
+        if (model.map[i].explored) {
+          this.mapDisplay.draw(x, y, model.map[i].sprite, "rgba(20, 20, 20, 0.7)");
+        } else {
+          this.mapDisplay.draw(x, y, 0);
+        }
+
       }
-
-    }
-    //Draw all visible tiles and actors
-    for (let tile of fovTiles) {
-      tile.explored = true;
-      this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.symbol, "transparent");
-      let actor = tile.occupant;
-      if (actor) {
-        this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.symbol, actor.symbol], "rgba(20, 20, 20, 0.1)");
-        //drawing as transparent makes it have the fog of war shading for some reason
-        //so here we draw with a small shadow
+      //Draw all visible tiles and actors
+      for (let tile of fovTiles) {
+        tile.explored = true;
+        this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.sprite, "transparent");
+        let actor = tile.occupant;
+        if (actor) {
+          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.sprite, actor.sprite], "rgba(20, 20, 20, 0.1)");
+          //drawing as transparent makes it have the fog of war shading for some reason
+          //so here we draw with a small shadow
+        }
+      }
+    } else {
+      for (let i = 0; i < model.map.length; i++) {
+        let x = model.map[i].x - camX;
+        let y = model.map[i].y - camY;
+        this.mapDisplay.draw(x, y, model.map[i].sprite, "transparent");
+        let actor = model.map[i].occupant;
+        if (actor) {
+          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [model.map[i].sprite, actor.sprite], "rgba(20, 20, 20, 0.1)");
+        }
       }
     }
+
   }
   updateStatsDisplay() {
     this.statsDisplay.clear();
@@ -423,7 +525,61 @@ class Engine {
 let model = null;
 let view = null;
 let engine = null;
-let generator = new LocationGenerator(100, 100)
+let generator = new LocationGenerator(100, 100);
+let shipString =
+"*************************" +
+"*************************" +
+"**********#####**********" +
+"*********#.....#*********" +
+"****^***#.......#***^****" +
+"****|***#.......#***|****" +
+"****||*#...===...#*||****" +
+"****||*#..#~~~#..#*||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||####.....####||****" +
+"****||#...........#||****" +
+"****||#.....@.....#||****" +
+"****||#...........#||****" +
+"****||####.....####||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||#...........#||****" +
+"****||#...#####...#||****" +
+"****||#..#*****#..#||****" +
+"****||###*******###||****" +
+"****||#|*********|#||****" +
+"****v||v*********v||v****" +
+"****|**|*********|**|****" +
+"*************************" +
+"*************************";
+
+//elt("div", {class: "game"}, drawGrid(level));
+function elt(type, attrs, ...children) {
+  let dom = document.createElement(type);
+  if (attrs) {
+    for (let attr of Object.keys(attrs)) {
+      dom.setAttribute(attr, attrs[attr]);
+    }
+  }
+  for (let child of children) {
+    if (typeof child != "string") dom.appendChild(child);
+    else dom.appendChild(document.createTextNode(child));
+  }
+  return dom;
+}
+
+let shipMenu = generator.createFromString(shipString, 27, 25);
+shipMenu.revealed = true;
+shipMenu.tileset = "./images/tiles_ship.png";
+shipMenu.tilemap = {
+  "player": [0, 0],
+  "floor": [0, 16],
+  "stars": [48, 16],
+  "wall": [64, 16],
+  "computer": [0, 64],
+}
 
 window.addEventListener("load", function() {
   model = new Model(100, 100);
