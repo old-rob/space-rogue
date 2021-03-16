@@ -7,6 +7,8 @@ class Actor {
     this.sprite = "?";
     this.speed = 10;
     this.los = 3;
+    this.maxHealth = 100;
+    this.health = 100;
   }
   //methods
   getSpeed() {
@@ -35,6 +37,13 @@ class Actor {
     alert("Actor is acting");
     //return new Promise(resolve => alert("I'm an actor without acting instructions..."));
   }
+
+  die() {
+    model.getTileAt(this.x, this.y).occupant = null;
+    engine.scheduler.remove(this);
+    //add to list of slain creatures here
+    //oh also feel free to add dropped loot to tile
+  }
 }
 
 class Player extends Actor {
@@ -45,6 +54,13 @@ class Player extends Actor {
     this.oxygen = 750;
     this.maxEnergy = 250;
     this.energy = 250;
+    this.inventory = [];
+    this.weapon = null;
+    this.reticle = {
+      isActive: false,
+      x: 0,
+      y: 0,
+    }
   }
   //methods
   act() {
@@ -58,29 +74,95 @@ class Player extends Actor {
         movementInputs[68] = 2; //d - 39 is rightKey
         movementInputs[83] = 4; //s - 40 is downKey
 
-        if (event.keyCode in movementInputs) {
-          //Check if desired space is free
-          let dir = ROT.DIRS[8][movementInputs[event.keyCode]];
-          if (this.attemptMove(dir)) {
+        if (event.keyCode === 75) /*K key for now, this needs to be customizable*/ {
+          if (!this.weapon) {
+            view.notify("You don't have any weapon equipped.");
+            return;
+          }
+          this.reticle.isActive = !this.reticle.isActive;
+          this.reticle.x = this.x;
+          this.reticle.y = this.y;
+          view.updateDisplay();
+        }
+        if (this.reticle.isActive) {
+          if (this.aim(event)) {
             this.oxygen -= 1;
             window.removeEventListener('keydown', keypressBind);
             resolve();
           }
-          return;
-        } else if (event.keyCode === 13) /*Enter key*/ {
-          let currentIndex = this.x + model.width * this.y;
-          if (model.map[currentIndex].type === "shipDoor") {
-            view.notify("You enter the ship...");
-            model.loadLocation(shipMenu);
-          } else if (model.map[currentIndex].type === "navigation") {
-            view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
-            model.map[currentIndex].occupant = null;
-            model.loadLocation(generator.generateTestLocation());
+        } else {
+          if (event.keyCode in movementInputs) {
+            //Check if desired space is free
+            let dir = ROT.DIRS[8][movementInputs[event.keyCode]];
+            if (this.attemptMove(dir)) {
+              this.oxygen -= 1;
+              window.removeEventListener('keydown', keypressBind);
+              resolve();
+            }
+            return;
+          } else if (event.keyCode === 13) /*Enter key*/ {
+            let currentIndex = this.x + model.width * this.y;
+            if (model.map[currentIndex].type === "shipDoor") {
+              view.notify("You enter the ship...");
+              model.loadLocation(shipMenu);
+            } else if (model.map[currentIndex].type === "navigation") {
+              this.warp();
+            }
           }
         }
 
       }
     });
+  }
+
+  aim(event) {
+    let newX = this.reticle.x;
+    let newY = this.reticle.y;
+    if (event.keyCode === 13) /*Enter key*/ {
+      this.reticle.isActive = false;
+      ///Actually have the attack happen here!
+      if (this.weapon.currentCharge >= this.weapon.chargeCost) {
+        this.weapon.currentCharge -= this.weapon.chargeCost;
+        this.energy -= this.weapon.useCost;
+
+        let target = model.getTileAt(newX, newY).occupant;
+        if (target) {
+          let damage = this.weapon.getDamage();
+          target.health -= damage;
+          view.notify("You hit for " + damage + " damage! ("
+            + target.health + "/" + target.maxHealth + ")");
+
+          if (target.health <= 0) {
+            target.die();
+          }
+        }
+
+        return true;
+      } else {
+        view.notify("Your weapon does not have enough charge!")
+      }
+
+      //then take away energy and apply damage segun equipped weapon
+      return true;
+    } else if (event.keyCode === 65) /*A key*/ {
+      newX = this.reticle.x - 1;
+    } else if (event.keyCode === 87) /*W key*/ {
+      newY = this.reticle.y - 1;
+    } else if (event.keyCode === 68) /*D key*/ {
+      newX = this.reticle.x + 1;
+    } else if (event.keyCode === 83) /*S key*/ {
+      newY = this.reticle.y + 1;
+    }
+    //This needs to be changed to use fov not path
+    let shotPath = this.getPathTo(newX, newY);
+    if (shotPath.length - 1 > this.weapon.range) {
+      view.notify("Your weapon can't reach there.");
+      return false;
+    }
+    this.reticle.x = newX;
+    this.reticle.y = newY;
+    view.updateDisplay();
+    return false;
   }
 
   attemptMove(dir) {
@@ -110,6 +192,24 @@ class Player extends Actor {
 
     return true;
   }
+
+  warp() {
+    let currentIndex = this.x + model.width * this.y;
+    view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
+    model.map[currentIndex].occupant = null;
+    model.loadLocation(generator.generateTestLocation());
+  }
+
+  equip(weapon) {
+    if (this.weapon) {
+      this.unequip();
+    }
+    this.weapon = weapon;
+  }
+  unequip() {
+    this.inventory.push(this.weapon);
+    this.weapon = null;
+  }
 }
 
 class Crab extends Actor {
@@ -117,11 +217,13 @@ class Crab extends Actor {
     super(x, y);
     this.sprite = "crab";
     this.speed = 5;
+    this.maxHealth = 25;
+    this.health = 25;
   }
   act() {
     let path = this.getPathTo(model.player.x, model.player.y);
     path.shift(); /* remove position of actor */
-    if (path.length <= 1) {
+    if (path.length === 1) {
       view.notify("Aculeate Carcinid says: Tag, you're it!");
     } else {
       let x = path[0][0];
@@ -139,6 +241,30 @@ class Crab extends Actor {
         this.y = y;
       }
     }
+  }
+}
+
+class Weapon {
+  constructor(name, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
+    this.name = name;
+    this.type = type;
+    this.range = range;
+    this.useCost = useCost;
+    this.chargeCost = chargeCost;
+    this.currentCharge = 0;
+    this.maxCharge = maxCharge;
+    this.minDamage = minDamage;
+    this.maxDamage = maxDamage;
+  }
+
+  getDamage() {
+    return this.getIntBetween(this.minDamage, this.maxDamage);
+  }
+
+  //this needs a better home
+  //random int from min to max, both included
+  getIntBetween(min, max) {
+    return Math.floor(ROT.RNG.getUniform() * (max - min + 1) ) + min;
   }
 }
 
@@ -175,6 +301,12 @@ class Model {
     this.revealed = false;
     this.actors = [];
     this.player = new Player(0, 0);
+
+    let wrench = new Weapon("Wrench", "melee", 1, 0, 0, 0, 3, 7);
+    let revolver = new Weapon("Revolver", "pistol", 5, 0, 25, 6, 5, 20);
+    let blaster = new Weapon("Blaster", "pistol", 5, 5, 0, 0, 5, 20);
+
+    this.player.equip(blaster);
   }
 
   loadLocation(location) {
@@ -194,6 +326,10 @@ class Model {
       view.setTiles(location.tileset, location.tilemap);
       view.updateDisplay();
     }
+  }
+
+  getTileAt(x, y) {
+    return this.map[x + this.width * y];
   }
 }
 
@@ -362,7 +498,7 @@ class View {
     this.textDisplay = new ROT.Display({width:74, height:7});
     //document.body.appendChild(this.textDisplay.getContainer());
     this.textWindow.appendChild(this.textDisplay.getContainer());
-    this.notify("Use WASD to move.");
+    this.notify("Use WASD to move, Press K to attack");
 
     this.updateDisplay();
   }
@@ -433,6 +569,7 @@ class View {
   updateMapDisplay() {
     let camX = this.getCameraX(model.player.x, model.width);
     let camY = this.getCameraY(model.player.y, model.height);
+    let visibleShader = "rgba(20, 20, 20, 0.1)";
     if (model.revealed === false) {
       let fovTiles = [];
 
@@ -455,21 +592,27 @@ class View {
       for (let tile of fovTiles) {
         tile.explored = true;
         this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.sprite, "transparent");
+        if (model.player.reticle.isActive && model.player.reticle.x === tile.x && model.player.reticle.y === tile.y) {
+          this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.sprite, "rgba(120, 20, 20, 0.3)");
+        }
         let actor = tile.occupant;
         if (actor) {
-          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.sprite, actor.sprite], "rgba(20, 20, 20, 0.1)");
+          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.sprite, actor.sprite], visibleShader);
           //drawing as transparent makes it have the fog of war shading for some reason
           //so here we draw with a small shadow
+          if (model.player.reticle.isActive && model.player.reticle.x === tile.x && model.player.reticle.y === tile.y) {
+            this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.sprite, actor.sprite], "rgba(120, 20, 20, 0.3)");
+          }
         }
       }
-    } else {
+    } else /*Revealed map*/ {
       for (let i = 0; i < model.map.length; i++) {
         let x = model.map[i].x - camX;
         let y = model.map[i].y - camY;
         this.mapDisplay.draw(x, y, model.map[i].sprite, "transparent");
         let actor = model.map[i].occupant;
         if (actor) {
-          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [model.map[i].sprite, actor.sprite], "rgba(20, 20, 20, 0.1)");
+          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [model.map[i].sprite, actor.sprite], visibleShader);
         }
       }
     }
@@ -482,6 +625,9 @@ class View {
 
     this.statsDisplay.drawText(1, 4, "Energy:");
     this.statsDisplay.drawText(1, 5, model.player.energy + "/" + model.player.maxEnergy);
+
+    this.statsDisplay.drawText(1, 7, "Health:");
+    this.statsDisplay.drawText(1, 8, model.player.health + "/" + model.player.maxHealth);
 
     //model.player
   }
