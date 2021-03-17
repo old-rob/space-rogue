@@ -4,11 +4,15 @@ class Actor {
   constructor(x, y) {
     this.x = x;
     this.y = y;
+    this.name = "Actor Interface";
     this.sprite = "?";
     this.speed = 10;
     this.los = 3;
+    this.maxEnergy = 100;
+    this.energy = 100;
     this.maxHealth = 100;
     this.health = 100;
+    this.weapon = null;
   }
   //methods
   getSpeed() {
@@ -33,6 +37,28 @@ class Actor {
     astar.compute(this.x, this.y, pathCallback);
     return path;
   }
+  attack(target) {
+    if (!this.weapon) { return false; }
+    if (this.weapon.currentCharge >= this.weapon.chargeCost
+        && this.energy >= this.weapon.useCost) {
+      this.weapon.currentCharge -= this.weapon.chargeCost;
+      this.energy -= this.weapon.useCost;
+
+      if (target) {
+        let damage = this.weapon.getDamage();
+        target.health -= damage;
+        view.notify(this.name + " hits for " + damage + " damage!");
+
+        if (target.health <= 0) {
+          target.die();
+        }
+      }
+
+      return true;
+    } else {
+      view.notify("The " + this.name + " looks exhausted.");
+    }
+  }
   act() {
     alert("Actor is acting");
     //return new Promise(resolve => alert("I'm an actor without acting instructions..."));
@@ -49,11 +75,12 @@ class Actor {
 class Player extends Actor {
   constructor(x, y) {
     super(x, y);
+    this.name = "You";
     this.sprite = "player";
     this.maxOxygen = 750;
     this.oxygen = 750;
-    this.maxEnergy = 250;
-    this.energy = 250;
+    this.maxEnergy = 100;
+    this.energy = 100;
     this.inventory = [];
     this.weapon = null;
     this.reticle = {
@@ -115,31 +142,40 @@ class Player extends Actor {
     });
   }
 
+  attack(target) {
+    if (this.weapon.currentCharge >= this.weapon.chargeCost
+        && this.energy >= this.weapon.useCost) {
+      this.weapon.currentCharge -= this.weapon.chargeCost;
+      this.energy -= this.weapon.useCost;
+
+      if (target) {
+        let damage = this.weapon.getDamage();
+        target.health -= damage;
+        view.notify("You hit for " + damage + " damage! ("
+          + target.health + "/" + target.maxHealth + ")");
+
+        if (target.health <= 0) {
+          target.die();
+        }
+      }
+
+      return true;
+    } else {
+      view.notify("Your weapon does not have enough charge!")
+    }
+  }
+
   aim(event) {
     let newX = this.reticle.x;
     let newY = this.reticle.y;
     if (event.keyCode === 13) /*Enter key*/ {
       this.reticle.isActive = false;
       ///Actually have the attack happen here!
-      if (this.weapon.currentCharge >= this.weapon.chargeCost) {
-        this.weapon.currentCharge -= this.weapon.chargeCost;
-        this.energy -= this.weapon.useCost;
-
-        let target = model.getTileAt(newX, newY).occupant;
-        if (target) {
-          let damage = this.weapon.getDamage();
-          target.health -= damage;
-          view.notify("You hit for " + damage + " damage! ("
-            + target.health + "/" + target.maxHealth + ")");
-
-          if (target.health <= 0) {
-            target.die();
-          }
-        }
-
+      let target = model.getTileAt(newX, newY).occupant;
+      if (this.attack(target)) {
         return true;
       } else {
-        view.notify("Your weapon does not have enough charge!")
+        return false;
       }
 
       //then take away energy and apply damage segun equipped weapon
@@ -215,22 +251,27 @@ class Player extends Actor {
 class Crab extends Actor {
   constructor(x, y) {
     super(x, y);
+    this.name = "Aculeate Carcinid";
     this.sprite = "crab";
     this.speed = 5;
     this.maxHealth = 25;
     this.health = 25;
+    this.weapon = new Weapon("Crystal Claw", "melee", 1, 0, 0, 0, 0, 5);
   }
   act() {
     let path = this.getPathTo(model.player.x, model.player.y);
     path.shift(); /* remove position of actor */
-    if (path.length === 1) {
-      view.notify("Aculeate Carcinid says: Tag, you're it!");
+    if (path.length === 0) {
+      return;
+    } else if (path.length === 1) {
+      let target = model.getTileAt(path[0][0], path[0][1]).occupant;
+      this.attack(target);
     } else {
       let x = path[0][0];
       let y = path[0][1];
 
-      let currentTile = model.map[this.x + model.width * this.y]
-      let newTile = model.map[x + model.width * y]
+      let currentTile = model.map[this.x + model.width * this.y];
+      let newTile = model.map[x + model.width * y];
 
       if (newTile.occupant) {
         return;
@@ -405,9 +446,19 @@ class LocationGenerator {
     }
     digger.create(digCallback.bind(this));
 
-    this.placeShip(testLocation, freeCells);
+    let rooms = digger.getRooms();
+    let roomCenters = [];
+    for (let room of rooms) {
+      let center = room.getCenter();
+      roomCenters.push(this.getIndex(center[0], center[1]));
+    }
+
+    this.placeShip(testLocation, roomCenters);
 
     //this.generateStars(10, freeCells);
+    this.createActor(Crab, testLocation, freeCells);
+    this.createActor(Crab, testLocation, freeCells);
+    this.createActor(Crab, testLocation, freeCells);
     this.createActor(Crab, testLocation, freeCells);
     this.createActor(Crab, testLocation, freeCells);
 
