@@ -81,7 +81,7 @@ class Player extends Actor {
     this.oxygen = 750;
     this.maxEnergy = 100;
     this.energy = 100;
-    this.inventory = [];
+    this.inventory = {};
     this.weapon = null;
     this.reticle = {
       isActive: false,
@@ -236,6 +236,13 @@ class Player extends Actor {
     model.loadLocation(generator.generateTestLocation());
   }
 
+  collect(item) {
+    if (this.inventory[item]) {
+      this.inventory[item] += 1;
+    } else {
+      this.inventory[item] = 1;
+    }
+  }
   equip(weapon) {
     if (this.weapon) {
       this.unequip();
@@ -285,10 +292,15 @@ class Crab extends Actor {
   }
 }
 
-class Weapon {
-  constructor(name, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
+class Item {
+  constructor(name, type) {
     this.name = name;
-    this.type = type;
+  }
+}
+
+class Weapon extends Item {
+  constructor(name, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
+    super(name, type);
     this.range = range;
     this.useCost = useCost;
     this.chargeCost = chargeCost;
@@ -311,7 +323,6 @@ class Weapon {
 
 class Tile {
   occupant = null;
-  items = null;
   constructor(x, y, type, sprite, lucent) {
     this.x = x;
     this.y = y;
@@ -319,6 +330,7 @@ class Tile {
     this.sprite = sprite;
     this.explored = false;
     this.translucent = lucent;
+    this.items = [];
   }
 }
 
@@ -620,7 +632,6 @@ class View {
   updateMapDisplay() {
     let camX = this.getCameraX(model.player.x, model.width);
     let camY = this.getCameraY(model.player.y, model.height);
-    let visibleShader = "rgba(20, 20, 20, 0.1)";
     if (model.revealed === false) {
       let fovTiles = [];
 
@@ -642,19 +653,22 @@ class View {
       //Draw all visible tiles and actors
       for (let tile of fovTiles) {
         tile.explored = true;
-        this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.sprite, "transparent");
+        let shader = "transparent";
+        let sprites = [tile.sprite];
+
+        if (tile.items.length > 0) {
+          sprites.push(tile.items[0].sprite);
+          shader = "rgba(20, 20, 20, 0.1)";
+        }
+        if (tile.occupant) {
+          sprites.push(tile.occupant.sprite);
+          shader = "rgba(20, 20, 20, 0.1)";
+        }
         if (model.player.reticle.isActive && model.player.reticle.x === tile.x && model.player.reticle.y === tile.y) {
-          this.mapDisplay.draw(tile.x - camX, tile.y - camY, tile.sprite, "rgba(120, 20, 20, 0.3)");
+          shader = "rgba(120, 20, 20, 0.3)";
         }
-        let actor = tile.occupant;
-        if (actor) {
-          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.sprite, actor.sprite], visibleShader);
-          //drawing as transparent makes it have the fog of war shading for some reason
-          //so here we draw with a small shadow
-          if (model.player.reticle.isActive && model.player.reticle.x === tile.x && model.player.reticle.y === tile.y) {
-            this.mapDisplay.draw(actor.x - camX, actor.y - camY, [tile.sprite, actor.sprite], "rgba(120, 20, 20, 0.3)");
-          }
-        }
+
+        this.mapDisplay.draw(tile.x - camX, tile.y - camY, sprites, shader);
       }
     } else /*Revealed map*/ {
       for (let i = 0; i < model.map.length; i++) {
@@ -663,7 +677,7 @@ class View {
         this.mapDisplay.draw(x, y, model.map[i].sprite, "transparent");
         let actor = model.map[i].occupant;
         if (actor) {
-          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [model.map[i].sprite, actor.sprite], visibleShader);
+          this.mapDisplay.draw(actor.x - camX, actor.y - camY, [model.map[i].sprite, actor.sprite], "rgba(20, 20, 20, 0.1)");
         }
       }
     }
