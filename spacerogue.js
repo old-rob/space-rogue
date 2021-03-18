@@ -13,6 +13,7 @@ class Actor {
     this.maxHealth = 100;
     this.health = 100;
     this.weapon = null;
+    this.drops = [new Item("Raw Crystal", "crystal", "material")];
   }
   //methods
   getSpeed() {
@@ -65,10 +66,11 @@ class Actor {
   }
 
   die() {
-    model.getTileAt(this.x, this.y).occupant = null;
+    let spot = model.getTileAt(this.x, this.y);
+    spot.occupant = null;
     engine.scheduler.remove(this);
     //add to list of slain creatures here
-    //oh also feel free to add dropped loot to tile
+    spot.items = this.drops;
   }
 }
 
@@ -234,6 +236,7 @@ class Player extends Actor {
     view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
     model.map[currentIndex].occupant = null;
     model.loadLocation(generator.generateTestLocation());
+    view.updateDisplay();
   }
 
   collect(item) {
@@ -263,7 +266,7 @@ class Crab extends Actor {
     this.speed = 5;
     this.maxHealth = 25;
     this.health = 25;
-    this.weapon = new Weapon("Crystal Claw", "melee", 1, 0, 0, 0, 0, 5);
+    this.weapon = new Weapon("Crystal Claw", "claw", "melee", 1, 0, 0, 0, 0, 5);
   }
   act() {
     let path = this.getPathTo(model.player.x, model.player.y);
@@ -293,14 +296,16 @@ class Crab extends Actor {
 }
 
 class Item {
-  constructor(name, type) {
+  constructor(name, sprite, type) {
     this.name = name;
+    this.sprite = sprite;
+    this.type = type;
   }
 }
 
 class Weapon extends Item {
-  constructor(name, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
-    super(name, type);
+  constructor(name, sprite, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
+    super(name, sprite, type);
     this.range = range;
     this.useCost = useCost;
     this.chargeCost = chargeCost;
@@ -355,9 +360,9 @@ class Model {
     this.actors = [];
     this.player = new Player(0, 0);
 
-    let wrench = new Weapon("Wrench", "melee", 1, 0, 0, 0, 3, 7);
-    let revolver = new Weapon("Revolver", "pistol", 5, 0, 25, 6, 5, 20);
-    let blaster = new Weapon("Blaster", "pistol", 5, 5, 0, 0, 5, 20);
+    let wrench = new Weapon("Wrench", "wrench", "melee", 1, 0, 0, 0, 3, 7);
+    let revolver = new Weapon("Revolver", "gun", "pistol", 5, 0, 25, 6, 5, 20);
+    let blaster = new Weapon("Blaster", "gun", "pistol", 5, 5, 0, 0, 5, 20);
 
     this.player.equip(blaster);
   }
@@ -482,6 +487,7 @@ class LocationGenerator {
       "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
       "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
       "stars": [64, 64],
+      "crystal": [64, 64],
       "crab": [0, 64],
     }
     return testLocation;
@@ -553,6 +559,7 @@ class View {
         "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
         "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
         "stars": [64, 64],
+        "crystal": [64, 64],
         "crab": [0, 64],
     });
 
