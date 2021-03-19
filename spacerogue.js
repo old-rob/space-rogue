@@ -13,6 +13,7 @@ class Actor {
     this.maxHealth = 100;
     this.health = 100;
     this.weapon = null;
+    this.drops = [new Item("Raw Crystal", "crystal", "material")];
   }
   //methods
   getSpeed() {
@@ -65,10 +66,11 @@ class Actor {
   }
 
   die() {
-    model.getTileAt(this.x, this.y).occupant = null;
+    let spot = model.getTileAt(this.x, this.y);
+    spot.occupant = null;
     engine.scheduler.remove(this);
     //add to list of slain creatures here
-    //oh also feel free to add dropped loot to tile
+    spot.items = this.drops;
   }
 }
 
@@ -113,7 +115,7 @@ class Player extends Actor {
         }
         if (this.reticle.isActive) {
           if (this.aim(event)) {
-            this.oxygen -= 1;
+            this.breathe(model.atmosphere);
             window.removeEventListener('keydown', keypressBind);
             resolve();
           }
@@ -122,19 +124,26 @@ class Player extends Actor {
             //Check if desired space is free
             let dir = ROT.DIRS[8][movementInputs[event.keyCode]];
             if (this.attemptMove(dir)) {
-              this.oxygen -= 1;
+              this.breathe(model.atmosphere);
               window.removeEventListener('keydown', keypressBind);
               resolve();
             }
             return;
           } else if (event.keyCode === 13) /*Enter key*/ {
             let currentIndex = this.x + model.width * this.y;
-            if (model.map[currentIndex].type === "shipDoor") {
+            let currentTile = model.map[currentIndex];
+            if (currentTile.type === "shipDoor") {
               view.notify("You enter the ship...");
               model.loadLocation(shipMenu);
-            } else if (model.map[currentIndex].type === "navigation") {
+            } else if (currentTile.type === "navigation") {
               this.warp();
+            } else if (currentTile.items.length > 0) {
+              for (let item of currentTile.items) {
+                this.collect(item);
+              }
+              currentTile.items = [];
             }
+            view.updateDisplay();
           }
         }
 
@@ -234,6 +243,18 @@ class Player extends Actor {
     view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
     model.map[currentIndex].occupant = null;
     model.loadLocation(generator.generateTestLocation());
+    view.updateDisplay();
+  }
+
+  breathe(atmosphere) {
+    if (atmosphere === "inert" || atmosphere === "toxic" || atmosphere === "none") {
+      if (this.oxygen >= 1) {
+        this.oxygen -= 1;
+      } else {
+        this.health -= 1;
+        //put suffocation code here?
+      }
+    }
   }
 
   collect(item) {
@@ -250,7 +271,7 @@ class Player extends Actor {
     this.weapon = weapon;
   }
   unequip() {
-    this.inventory.push(this.weapon);
+    this.inventory[this.weapon.name] ? this.inventory[this.weapon.name] += 1 : this.inventory[this.weapon.name] = 1;
     this.weapon = null;
   }
 }
@@ -263,7 +284,7 @@ class Crab extends Actor {
     this.speed = 5;
     this.maxHealth = 25;
     this.health = 25;
-    this.weapon = new Weapon("Crystal Claw", "melee", 1, 0, 0, 0, 0, 5);
+    this.weapon = new Weapon("Crystal Claw", "claw", "melee", 1, 0, 0, 0, 0, 5);
   }
   act() {
     let path = this.getPathTo(model.player.x, model.player.y);
@@ -293,14 +314,16 @@ class Crab extends Actor {
 }
 
 class Item {
-  constructor(name, type) {
+  constructor(name, sprite, type) {
     this.name = name;
+    this.sprite = sprite;
+    this.type = type;
   }
 }
 
 class Weapon extends Item {
-  constructor(name, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
-    super(name, type);
+  constructor(name, sprite, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
+    super(name, sprite, type);
     this.range = range;
     this.useCost = useCost;
     this.chargeCost = chargeCost;
@@ -354,10 +377,11 @@ class Model {
     this.revealed = false;
     this.actors = [];
     this.player = new Player(0, 0);
+    this.atmosphere = "safe";
 
-    let wrench = new Weapon("Wrench", "melee", 1, 0, 0, 0, 3, 7);
-    let revolver = new Weapon("Revolver", "pistol", 5, 0, 25, 6, 5, 20);
-    let blaster = new Weapon("Blaster", "pistol", 5, 5, 0, 0, 5, 20);
+    let wrench = new Weapon("Wrench", "wrench", "melee", 1, 0, 0, 0, 3, 7);
+    let revolver = new Weapon("Revolver", "gun", "pistol", 5, 0, 25, 6, 5, 20);
+    let blaster = new Weapon("Blaster", "gun", "pistol", 5, 5, 0, 0, 5, 20);
 
     this.player.equip(blaster);
   }
@@ -369,6 +393,7 @@ class Model {
     this.revealed = location.revealed;
     this.actors = location.actors;
     this.landingIndex = location.landingIndex;
+    this.atmosphere = location.atmosphere;
 
     this.map[this.landingIndex].occupant = this.player;
     this.player.x = this.landingIndex % this.width;
@@ -474,6 +499,7 @@ class LocationGenerator {
     this.createActor(Crab, testLocation, freeCells);
     this.createActor(Crab, testLocation, freeCells);
 
+    testLocation.atmosphere = "none";
     testLocation.tileset = "./images/tiles_greymoon.png";
     testLocation.tilemap = {
       "player": [0, 0],
@@ -482,6 +508,7 @@ class LocationGenerator {
       "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
       "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
       "stars": [64, 64],
+      "crystal": [64, 64],
       "crab": [0, 64],
     }
     return testLocation;
@@ -553,6 +580,7 @@ class View {
         "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
         "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
         "stars": [64, 64],
+        "crystal": [64, 64],
         "crab": [0, 64],
     });
 
@@ -783,6 +811,7 @@ function elt(type, attrs, ...children) {
 
 let shipMenu = generator.createFromString(shipString, 27, 25);
 shipMenu.revealed = true;
+shipMenu.atmosphere = "safe";
 shipMenu.tileset = "./images/tiles_ship.png";
 shipMenu.tilemap = {
   "player": [0, 0],
