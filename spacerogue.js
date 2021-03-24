@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.2.7
+//TEST ROGUELIKE VER 0.3.0
 
 class Actor {
   constructor(x, y) {
@@ -132,12 +132,11 @@ class Player extends Actor {
           } else if (event.keyCode === 13) /*Enter key*/ {
             let currentIndex = this.x + model.width * this.y;
             let currentTile = model.map[currentIndex];
-            if (currentTile.type === "shipDoor") {
-              view.notify("You enter the ship...");
-              model.loadLocation(shipMenu);
-            } else if (currentTile.type === "navigation") {
-              this.warp();
-            } else if (currentTile.items.length > 0) {
+            if (currentTile.special) {
+              currentTile.actionTrigger();
+            }
+
+            if (currentTile.items.length > 0) {
               for (let item of currentTile.items) {
                 this.collect(item);
               }
@@ -223,10 +222,8 @@ class Player extends Actor {
       return false;
     } else if (newTile.occupant) {
       return false;
-    } else if (newTile.type === "shipDoor") {
-      view.notify("Press Enter to board ship.");
-    } else if (newTile.type === "navigation") {
-      view.notify("Naivigation: Press Enter to set course.");
+    } else if (newTile.special) {
+      newTile.stepTrigger();
     }
 
     currentTile.occupant = null;
@@ -354,6 +351,10 @@ class Tile {
     this.explored = false;
     this.translucent = lucent;
     this.items = [];
+    this.special = false;
+    //set special to true and add triggers for special tiles
+    //actionTrigger()
+    //stepTrigger()
   }
 }
 
@@ -457,8 +458,17 @@ class LocationGenerator {
     location.landingIndex = availableCells[Math.floor(ROT.RNG.getUniform() * availableCells.length)];
     let doorX = this.getX(location.landingIndex);
     let doorY = this.getY(location.landingIndex);
+    let doorTile = new Tile(doorX, doorY, "shipDoor", "shipDoor", true);
+    doorTile.special = true;
+    doorTile.actionTrigger = () => {
+      view.notify("You enter the ship...");
+      model.loadLocation(shipMenu);
+    };
+    doorTile.stepTrigger = () => {
+      view.notify("Press Enter to board ship.");
+    };
 
-    location.map[location.landingIndex] = new Tile(doorX, doorY, "shipDoor", "shipDoor", true); //Door
+    location.map[location.landingIndex] = doorTile; //Door
     location.map[location.landingIndex - 1] = new Tile(doorX - 1, doorY, "wall", "shipLowLeft", true); //lowleft
     location.map[location.landingIndex + 1] = new Tile(doorX + 1, doorY, "wall", "shipLowRight", true); //lowright
     location.map[this.getIndex(doorX - 1, doorY - 1)] = new Tile(doorX - 1, doorY - 1, "wall", "shipUpLeft", false); //upleft
@@ -540,7 +550,14 @@ class LocationGenerator {
           location.map[i] = new Tile(x, y, "wall", "wall", true);
           break;
         case "~":
-          location.map[i] = new Tile(x, y, "navigation", "floor", true);
+          let navTile = new Tile(x, y, "navigation", "floor", true;
+          navTile.actionTrigger = () => {
+            model.player.warp();
+          };
+          navTile.stepTrigger = () => {
+            view.notify("Naivigation: Press Enter to set course.");
+          };
+          location.map[i] = navTile;
           break;
         case "=":
           location.map[i] = new Tile(x, y, "wall", "computer", true);
