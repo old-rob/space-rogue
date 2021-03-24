@@ -529,6 +529,7 @@ class LocationGenerator {
     for (let i = 0; i < string.length; i++) {
       let x = i % w;
       let y = Math.floor(i/w);
+      let tile;
 
       switch (string[i]) {
         case "*":
@@ -549,15 +550,49 @@ class LocationGenerator {
         case "v":
           location.map[i] = new Tile(x, y, "wall", "wall", true);
           break;
-        case "~":
-          let navTile = new Tile(x, y, "navigation", "floor", true;
-          navTile.actionTrigger = () => {
+        case "N": //Navigation
+          tile = new Tile(x, y, "navigation", "floor", true);
+          tile.special = true;
+          tile.actionTrigger = () => {
             model.player.warp();
           };
-          navTile.stepTrigger = () => {
+          tile.stepTrigger = () => {
             view.notify("Naivigation: Press Enter to set course.");
           };
-          location.map[i] = navTile;
+          location.map[i] = tile;
+          break;
+        case "O": //Oxygen Tanks
+          tile = new Tile(x, y, "charging", "floor", true);
+          tile.special = true;
+          tile.actionTrigger = () => {
+            model.player.oxygen = model.player.maxOxygen;
+          };
+          tile.stepTrigger = () => {
+            view.notify("Oxygen: Press Enter to refill tanks.");
+          };
+          location.map[i] = tile;
+          break;
+        case "B": //Batteries
+          tile = new Tile(x, y, "charging", "floor", true);
+          tile.special = true;
+          tile.actionTrigger = () => {
+            model.player.energy = model.player.maxEnergy;
+          };
+          tile.stepTrigger = () => {
+            view.notify("Charging Station: Press Enter to switch batteries.");
+          };
+          location.map[i] = tile;
+          break;
+        case "M": //Medical
+          tile = new Tile(x, y, "charging", "floor", true);
+          tile.special = true;
+          tile.actionTrigger = () => {
+            model.player.health = model.player.maxHealth;
+          };
+          tile.stepTrigger = () => {
+            view.notify("Medical Assistant: Press Enter to recieve care.");
+          };
+          location.map[i] = tile;
           break;
         case "=":
           location.map[i] = new Tile(x, y, "wall", "computer", true);
@@ -790,12 +825,12 @@ let shipString =
 "****^***#.......#***^****" +
 "****|***#.......#***|****" +
 "****||*#...===...#*||****" +
-"****||*#..#~~~#..#*||****" +
+"****||*#..#NNN#..#*||****" +
 "****||#...........#||****" +
 "****||#...........#||****" +
 "****||#...........#||****" +
-"****||####.....####||****" +
-"****||#...........#||****" +
+"****||#===.....####||****" +
+"****||#MBO........#||****" +
 "****||#.....@.....#||****" +
 "****||#...........#||****" +
 "****||####.....####||****" +
