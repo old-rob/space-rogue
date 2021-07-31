@@ -197,7 +197,9 @@ class Player extends Actor {
     } else if (event.keyCode === 83) /*S key*/ {
       newY = this.reticle.y + 1;
     }
-    tilesInRange = []
+    //It would be more efficient to calculate beforehand
+    //Then you might also be able to display the entire reachable area
+    let tilesInRange = []
     this.weapon.inRange.compute(this.x, this.y, this.weapon.range, function(x, y, r, visibility) {
           tilesInRange.push(model.map[x + model.width * y]);
     });
