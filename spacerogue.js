@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.3.0
+//TEST ROGUELIKE VER 0.3.2
 
 class Actor {
   constructor(x, y) {
@@ -186,7 +186,7 @@ class Player extends Actor {
         return false;
       }
       return true;
-    } 
+    }
     //Or if we want to move the reticle
     else if (event.keyCode === 65) /*A key*/ {
       newX = this.reticle.x - 1;
@@ -245,7 +245,33 @@ class Player extends Actor {
     view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
     model.map[currentIndex].occupant = null;
     model.loadLocation(generator.generateTestLocation());
+
+    view.displayWarpChoice(generator.generateTestLocation());
+
     view.updateDisplay();
+
+    /*
+    //Warp process pseudocode
+    when Warp
+    with a random chance choose one of the following categories
+
+    You see a moon with a few interesting locations on it
+      //generate 2-3 moon maps
+      // display is round moon display
+      // set choice highlight zones
+    You see a gas giant with several interesting looking moons
+      //generate 2-3 moon maps
+      //display is gas giant
+    You come across an asteroid belt with objects that look suitable to land on
+      //generate 2-3 asteroid maps, and occasionally add a satelite map
+
+    You find a sun with several planets oribiting it nearby
+      //generate 2-3 planet maps
+
+    Open chosen display as a new pop up window
+    say at the bottom "Select your destination"
+    */
+
   }
 
   breathe(atmosphere) {
@@ -260,10 +286,10 @@ class Player extends Actor {
   }
 
   collect(item) {
-    if (this.inventory[item]) {
-      this.inventory[item] += 1;
+    if (this.inventory[item.name]) {
+      this.inventory[item.name] += 1;
     } else {
-      this.inventory[item] = 1;
+      this.inventory[item.name] = 1;
     }
   }
   equip(weapon) {
@@ -315,6 +341,7 @@ class Crab extends Actor {
   }
 }
 
+
 class Item {
   constructor(name, sprite, type) {
     this.name = name;
@@ -339,7 +366,7 @@ class Weapon extends Item {
   getDamage() {
     return this.getIntBetween(this.minDamage, this.maxDamage);
   }
-  
+
   /* FOV input callback */
   lightPasses(x, y) {
     let tile = model.map[x + model.width * y];
@@ -385,6 +412,9 @@ class Location {
     this.actors = [];
     this.landingIndex = [0];
     this.tileset = "./images/tiles_greymoon.png";
+
+    //Generation information (for warp decisions)
+    this.type = "Moon";
   }
 }
 
@@ -496,6 +526,9 @@ class LocationGenerator {
 
   generateTestLocation() {
     let testLocation = new Location(this.height, this.width);
+
+    //Add information for warp decisions
+    testLocation.type = "Test"
 
     let digger = new ROT.Map.Digger(this.height, this.width);
     let freeCells = [];
@@ -667,10 +700,22 @@ class View {
   notify(text) {
     this.textDisplay.clear();
     if (this.notifications.length > 2) { this.notifications.shift(); }
+    //Add the new notification
     this.notifications.push(text);
+    //Display all notifications
     for (let i = 0; i < this.notifications.length; i++) {
       this.textDisplay.drawText(1, (i * 2) + 1, this.notifications[i]);
     }
+  }
+
+  //Used for showing information on the selected option during warp
+  displayWarpChoice(location) {
+    this.textDisplay.clear();
+    this.textDisplay.drawText(3, 2, "%c{white}Select");
+    this.textDisplay.drawText(4, 3, "%c{white}your     :");
+    this.textDisplay.drawText(1, 4, "%c{white}destination");
+
+    this.textDisplay.drawText(15, 1, "Type: " + location.type);
   }
 
   setTiles(tilesetSource, tileMappings) {
@@ -783,14 +828,34 @@ class View {
   }
   updateStatsDisplay() {
     this.statsDisplay.clear();
-    this.statsDisplay.drawText(1, 1, "Oxygen:");
+    //the %c{} means make the text color
+    this.statsDisplay.drawText(1, 1, "%c{cyan}Oxygen:");
     this.statsDisplay.drawText(1, 2, model.player.oxygen + "/" + model.player.maxOxygen);
 
-    this.statsDisplay.drawText(1, 4, "Energy:");
+    this.statsDisplay.drawText(1, 4, "%c{yellow}Energy:");
     this.statsDisplay.drawText(1, 5, model.player.energy + "/" + model.player.maxEnergy);
 
-    this.statsDisplay.drawText(1, 7, "Health:");
+    this.statsDisplay.drawText(1, 7, "%c{magenta}Health:");
     this.statsDisplay.drawText(1, 8, model.player.health + "/" + model.player.maxHealth);
+
+    this.statsDisplay.drawText(1, 10, "%c{red}Weapon:");
+    if (model.player.weapon) {
+      let w = model.player.weapon;
+      this.statsDisplay.drawText(1, 11, "%c{white}" + w.name);
+      this.statsDisplay.drawText(1, 12, "Charges: " + w.currentCharge);
+      this.statsDisplay.drawText(1, 13, "Charge cost: " + w.chargeCost);
+      this.statsDisplay.drawText(1, 14, "Energy cost: " + w.useCost);
+      this.statsDisplay.drawText(1, 15, "Range: " + w.range);
+      this.statsDisplay.drawText(1, 16, "Damage: " + w.minDamage + "-" + w.maxDamage);
+    } else {
+      this.statsDisplay.drawText(1, 11, "None");
+    }
+
+    //Temporary, show crystal count
+    this.statsDisplay.drawText(1, 18, "%c{white}Inventory:");
+    for (let item in model.player.inventory) {
+      this.statsDisplay.drawText(1, 19, item + ": " + model.player.inventory[item]);
+    }
 
     //model.player
   }
