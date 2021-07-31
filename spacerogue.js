@@ -185,10 +185,10 @@ class Player extends Actor {
       } else {
         return false;
       }
-
-      //then take away energy and apply damage segun equipped weapon
       return true;
-    } else if (event.keyCode === 65) /*A key*/ {
+    } 
+    //Or if we want to move the reticle
+    else if (event.keyCode === 65) /*A key*/ {
       newX = this.reticle.x - 1;
     } else if (event.keyCode === 87) /*W key*/ {
       newY = this.reticle.y - 1;
@@ -197,9 +197,14 @@ class Player extends Actor {
     } else if (event.keyCode === 83) /*S key*/ {
       newY = this.reticle.y + 1;
     }
-    //This needs to be changed to use fov not path
-    let shotPath = this.getPathTo(newX, newY);
-    if (shotPath.length - 1 > this.weapon.range) {
+    //It would be more efficient to calculate beforehand
+    //Then you might also be able to display the entire reachable area
+    let tilesInRange = []
+    this.weapon.inRange.compute(this.x, this.y, this.weapon.range, function(x, y, r, visibility) {
+          tilesInRange.push(model.map[x + model.width * y]);
+    });
+    //If the desired tile is not in range for the current weapon
+    if ( !tilesInRange.includes(model.map[newX + model.width * newY]) ) {
       view.notify("Your weapon can't reach there.");
       return false;
     }
@@ -322,6 +327,7 @@ class Weapon extends Item {
   constructor(name, sprite, type, range, useCost, chargeCost, maxCharge, minDamage, maxDamage) {
     super(name, sprite, type);
     this.range = range;
+    this.inRange = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
     this.useCost = useCost;
     this.chargeCost = chargeCost;
     this.currentCharge = 0;
@@ -332,6 +338,18 @@ class Weapon extends Item {
 
   getDamage() {
     return this.getIntBetween(this.minDamage, this.maxDamage);
+  }
+  
+  /* FOV input callback */
+  lightPasses(x, y) {
+    let tile = model.map[x + model.width * y];
+    if (tile) {
+      //FEEL FREE TO MAKE A NEW TILE ATTR
+      //  if there is something you can see but not shoot through
+      return tile.translucent;
+    } else {
+      return false;
+    }
   }
 
   //this needs a better home
