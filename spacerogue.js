@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.3.2
+//TEST ROGUELIKE VER 0.3.3
 
 class Actor {
   constructor(x, y) {
@@ -69,7 +69,9 @@ class Actor {
     let spot = model.getTileAt(this.x, this.y);
     spot.occupant = null;
     engine.scheduler.remove(this);
+    //TODO
     //add to list of slain creatures here
+    //ALSO MAKE IT SO ITEMS CAN STACK, CURRENTLY DOESN'T WORK
     spot.items = this.drops;
   }
 }
@@ -90,6 +92,9 @@ class Player extends Actor {
       x: 0,
       y: 0,
     }
+    this.warpSelect = false;
+    this.warpChoices = [];
+    this.selection = 0;
   }
   //methods
   act() {
@@ -97,55 +102,65 @@ class Player extends Actor {
       let keypressBind = handleKeypress.bind(this);
       window.addEventListener('keydown', keypressBind);
       function handleKeypress(event) {
-        let movementInputs = {}
-        movementInputs[65] = 6; //a - 37 is leftKey
-        movementInputs[87] = 0; //w - 38 is upKey
-        movementInputs[68] = 2; //d - 39 is rightKey
-        movementInputs[83] = 4; //s - 40 is downKey
-
-        if (event.keyCode === 75) /*K key for now, this needs to be customizable*/ {
-          if (!this.weapon) {
-            view.notify("You don't have any weapon equipped.");
-            return;
+        if (this.warpSelect) {
+          //makeSelection returns true when a decision has been made
+          if ( this.makeSelection(event) ) {
+            this.warp();
+            this.warpSelect = false;
+            view.updateDisplay(model);
           }
-          this.reticle.isActive = !this.reticle.isActive;
-          this.reticle.x = this.x;
-          this.reticle.y = this.y;
-          view.updateDisplay();
-        }
-        if (this.reticle.isActive) {
-          if (this.aim(event)) {
-            this.breathe(model.atmosphere);
-            window.removeEventListener('keydown', keypressBind);
-            resolve();
-          }
+          window.removeEventListener('keydown', keypressBind);
+          resolve();
         } else {
-          if (event.keyCode in movementInputs) {
-            //Check if desired space is free
-            let dir = ROT.DIRS[8][movementInputs[event.keyCode]];
-            if (this.attemptMove(dir)) {
+          let movementInputs = {}
+          movementInputs[65] = 6; //a - 37 is leftKey
+          movementInputs[87] = 0; //w - 38 is upKey
+          movementInputs[68] = 2; //d - 39 is rightKey
+          movementInputs[83] = 4; //s - 40 is downKey
+
+          if (event.keyCode === 75) /*K key for now, this needs to be customizable*/ {
+            if (!this.weapon) {
+              view.notify("You don't have any weapon equipped.");
+              return;
+            }
+            this.reticle.isActive = !this.reticle.isActive;
+            this.reticle.x = this.x;
+            this.reticle.y = this.y;
+            view.updateDisplay();
+          }
+          if (this.reticle.isActive) {
+            if (this.aim(event)) {
               this.breathe(model.atmosphere);
               window.removeEventListener('keydown', keypressBind);
               resolve();
             }
-            return;
-          } else if (event.keyCode === 13) /*Enter key*/ {
-            let currentIndex = this.x + model.width * this.y;
-            let currentTile = model.map[currentIndex];
-            if (currentTile.special) {
-              currentTile.actionTrigger();
-            }
-
-            if (currentTile.items.length > 0) {
-              for (let item of currentTile.items) {
-                this.collect(item);
+          } else {
+            if (event.keyCode in movementInputs) {
+              //Check if desired space is free
+              let dir = ROT.DIRS[8][movementInputs[event.keyCode]];
+              if (this.attemptMove(dir)) {
+                this.breathe(model.atmosphere);
+                window.removeEventListener('keydown', keypressBind);
+                resolve();
               }
-              currentTile.items = [];
+              return;
+            } else if (event.keyCode === 13) /*Enter key*/ {
+              let currentIndex = this.x + model.width * this.y;
+              let currentTile = model.map[currentIndex];
+              if (currentTile.special) {
+                currentTile.actionTrigger();
+              }
+
+              if (currentTile.items.length > 0) {
+                for (let item of currentTile.items) {
+                  this.collect(item);
+                }
+                currentTile.items = [];
+              }
+              view.updateDisplay();
             }
-            view.updateDisplay();
           }
         }
-
       }
     });
   }
@@ -240,15 +255,22 @@ class Player extends Actor {
     return true;
   }
 
-  warp() {
-    let currentIndex = this.x + model.width * this.y;
-    view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
-    model.map[currentIndex].occupant = null;
-    model.loadLocation(generator.generateTestLocation());
+  initWarp() {
+    this.selection = 0;
+    //Select a new location
+    //Randomly make 2-4 choices
+    let choices = []
+    //TODO REPLACE WITH DIFFERENT SCENARIOS
+    choices[0] = generator.generateTestLocation();
+    choices[1] = generator.generateMoonCrater();
+    choices[2] = generator.generateTestLocation();
+    choices[1].type = "Moon"
+    choices[2].type = "Planet"
 
-    view.displayWarpChoice(generator.generateTestLocation());
+    this.warpChoices = choices;
+    this.warpSelect = true;
 
-    view.updateDisplay();
+    view.notify("Insert flavortext that corresponds to choices here.");
 
     /*
     //Warp process pseudocode
@@ -264,14 +286,36 @@ class Player extends Actor {
       //display is gas giant
     You come across an asteroid belt with objects that look suitable to land on
       //generate 2-3 asteroid maps, and occasionally add a satelite map
-
     You find a sun with several planets oribiting it nearby
       //generate 2-3 planet maps
-
-    Open chosen display as a new pop up window
-    say at the bottom "Select your destination"
     */
 
+  }
+
+  warp() {
+    //Remove self from previous map
+    let currentIndex = this.x + model.width * this.y;
+    model.map[currentIndex].occupant = null;
+
+    model.loadLocation(this.warpChoices[this.selection])
+    view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
+    view.updateDisplay();
+  }
+
+  makeSelection(event) {
+    let choices = this.warpChoices;
+    if (event.keyCode === 13) /*Enter key*/ {
+      return true;
+    } else if (event.keyCode === 65) /*A key*/ {
+      this.selection > 0 ? this.selection -= 1 : this.selection = choices.length - 1;
+    } else if (event.keyCode === 87) /*W key*/ {
+      this.selection < choices.length - 1 ? this.selection += 1 : this.selection = 0;
+    } else if (event.keyCode === 68) /*D key*/ {
+      this.selection < choices.length - 1 ? this.selection += 1 : this.selection = 0;
+    } else if (event.keyCode === 83) /*S key*/ {
+      this.selection > 0 ? this.selection -= 1 : this.selection = choices.length - 1;
+    }
+    view.displayWarpChoice(choices[this.selection]);
   }
 
   breathe(atmosphere) {
@@ -499,6 +543,7 @@ class LocationGenerator {
     for (let i = 0; i < numItems; i++) {
       let index = Math.floor(ROT.RNG.getUniform() * availableCells.length);
       location.map[index].items.push(item);
+      //TODO: REMOVE INDEX FROM availableCells AND RETURN IT SO WE KNOW NOT TO PUT SOMETHING ELSE THERE --------------------------------------------------------- TODO ANNOYING LONG LINE
     }
   }
 
@@ -575,6 +620,65 @@ class LocationGenerator {
     return testLocation;
   }
 
+  generateMoonCrater() {
+    let loc = new Location(this.height, this.width);
+
+    //Add information for warp decisions
+    loc.type = "Moon Crater"
+
+    let mapper = new ROT.Map.Cellular(this.width, this.height, {
+        born: [4, 5, 6, 7, 8],
+        survive: [2, 3, 4, 5]
+    });
+
+    let freeCells = [];
+    let mapCallback = function(x, y, value) {
+        let index = this.getIndex(x, y);
+        // We have an empty space
+        if (value === 0) {
+          loc.map[index] = new Tile(x, y, "floor", "floor", true);
+          freeCells.push(index);
+        } else {
+          loc.map[index] = new Tile(x, y, "wall", "wall", false);
+        }
+    }
+    mapper.randomize(0.9);
+    for (var i=48; i>=0; i--) {
+      mapper.create();
+    }
+    mapper.create(mapCallback.bind(this));
+
+    //let rooms = digger.getRooms();
+    //let roomCenters = [];
+    //for (let room of rooms) {
+    //  let center = room.getCenter();
+    //  roomCenters.push(this.getIndex(center[0], center[1]));
+    //}
+
+    this.placeShip(loc, [550,750,1250]);
+
+    //this.generateStars(10, freeCells);
+    this.createActor(Crab, loc, freeCells);
+    this.createActor(Crab, loc, freeCells);
+    this.createActor(Crab, loc, freeCells);
+    this.createActor(Crab, loc, freeCells);
+    this.createActor(Crab, loc, freeCells);
+
+    loc.atmosphere = "none";
+    loc.tileset = "./images/tiles_greymoon.png";
+    loc.tilemap = {
+      "player": [0, 0],
+      "floor": [0, 16],
+      "wall": [64, 16],
+      "shipUpLeft": [0, 32], "shipUpMid": [16, 32], "shipUpRight": [32, 32],
+      "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
+      "stars": [64, 64],
+      "crystal": [64, 64],
+      "crab": [0, 64],
+    }
+    return loc;
+  }
+
   createFromString(string, h, w) {
     let location = new Location(h, w);
     for (let i = 0; i < string.length; i++) {
@@ -605,7 +709,7 @@ class LocationGenerator {
           tile = new Tile(x, y, "navigation", "floor", true);
           tile.special = true;
           tile.actionTrigger = () => {
-            model.player.warp();
+            model.player.initWarp();
           };
           tile.stepTrigger = () => {
             view.notify("Naivigation: Press Enter to set course.");
