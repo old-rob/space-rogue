@@ -7,29 +7,34 @@ class Actor {
     this.name = "Actor Interface";
     this.sprite = "?";
     this.speed = 10;
-    this.los = 3;
+    this.los = 10;
     this.maxEnergy = 100;
     this.energy = 100;
     this.maxHealth = 100;
     this.health = 100;
     this.weapon = null;
     this.drops = [new Item("Raw Crystal", "crystal", "material")];
+    this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses, {topology:4});
+    this.intent = "rest";
   }
   //methods
+  //Speed getter for turn order determination
   getSpeed() {
     return this.speed;
   }
-  getPathTo(x, y) {
-    let passableCallback = function(x, y) {
-      let terrain = model.map[x + model.width * y].type;
-      if (terrain === "wall") {
-        return false;
-      } else {
-        return true;
-      }
+  //Passability callback for pathfinding
+  //Can be overwritten to allow flight etc.
+  canTraverse(x, y) {
+    let terrain = model.map[x + model.width * y].type;
+    if (terrain === "wall") {
+      return false;
+    } else {
+      return true;
     }
+  }
+  getPathTo(x, y) {
+    let passableCallback = this.canTraverse;
     let astar = new ROT.Path.AStar(x, y, passableCallback, {topology:4});
-
     let path = [];
     //////////////////////////
     let pathCallback = function(x, y) {
@@ -37,6 +42,29 @@ class Actor {
     }
     astar.compute(this.x, this.y, pathCallback);
     return path;
+  }
+  attemptMove(dir) {
+    let newX = this.x + dir[0];
+    let newY = this.y + dir[1];
+
+    let currentIndex = this.x + model.width * this.y;
+    let newIndex = newX + model.width * newY;
+    let currentTile = model.map[currentIndex];
+    let newTile = model.map[newIndex];
+
+    if (!this.canTraverse(newX, newY)) {
+      return false;
+    } else if (newTile.occupant) {
+      return false;
+    }
+
+    currentTile.occupant = null;
+    newTile.occupant = this;
+
+    this.x = newX;
+    this.y = newY;
+
+    return true;
   }
   attack(target) {
     if (!this.weapon) { return false; }
@@ -61,8 +89,11 @@ class Actor {
     }
   }
   act() {
-    alert("Actor is acting");
-    //return new Promise(resolve => alert("I'm an actor without acting instructions..."));
+    if (this.intent === "rest") {
+      this.actionRest();
+    } else if (this.intent === "wander") {
+      this.actionWander();
+    }
   }
 
   die() {
@@ -73,6 +104,20 @@ class Actor {
     //add to list of slain creatures here
     //ALSO MAKE IT SO ITEMS CAN STACK, CURRENTLY DOESN'T WORK
     spot.items = this.drops;
+  }
+
+  //Methods for the action depending on what "mood" the actor is in
+  //These are defaults, but of course they can be overridden for different personalities
+  actionRest() {
+    return;
+  }
+  actionWander() {
+    while (true) {
+      let dir = ROT.DIRS[8][ROT.RNG.getItem([0, 2, 4, 6])];
+      if (this.attemptMove(dir)) {
+        return;
+      }
+    }
   }
 }
 
@@ -270,7 +315,7 @@ class Player extends Actor {
     this.warpChoices = choices;
     this.warpSelect = true;
 
-    view.notify("Insert flavortext that corresponds to choices here.");
+    view.notify("Initiating warp drive. Please select destination, then press Enter.");
 
     /*
     //Warp process pseudocode
@@ -299,7 +344,8 @@ class Player extends Actor {
 
     model.loadLocation(this.warpChoices[this.selection])
     view.notify("The only planet in range is a desolate moon. You've no choice but to search it and hope for the best.");
-    view.updateDisplay();
+
+    setTimeout(view.updateDisplay.bind(view), 500);
   }
 
   makeSelection(event) {
@@ -346,6 +392,9 @@ class Player extends Actor {
     this.inventory[this.weapon.name] ? this.inventory[this.weapon.name] += 1 : this.inventory[this.weapon.name] = 1;
     this.weapon = null;
   }
+  die() {
+    view.notify("You Died");
+  }
 }
 
 class Crab extends Actor {
@@ -382,6 +431,21 @@ class Crab extends Actor {
         this.y = y;
       }
     }
+  }
+}
+
+class Pilbug extends Actor {
+  constructor(x, y) {
+    super(x, y);
+    this.name = "Pilbug";
+    this.sprite = "pil";
+    this.speed = 8;
+    this.maxHealth = 25;
+    this.health = 25;
+    this.weapon = new Weapon("Crystal Claw", "claw", "melee", 1, 0, 0, 0, 0, 5);
+  }
+  act() {
+    this.actionWander();
   }
 }
 
@@ -567,6 +631,11 @@ class LocationGenerator {
     location.map[this.getIndex(doorX - 1, doorY - 1)] = new Tile(doorX - 1, doorY - 1, "wall", "shipUpLeft", false); //upleft
     location.map[this.getIndex(doorX, doorY - 1)] = new Tile(doorX, doorY - 1, "wall", "shipUpMid", false); //upmid
     location.map[this.getIndex(doorX + 1, doorY - 1)] = new Tile(doorX + 1, doorY - 1, "wall", "shipUpRight", false); //upright
+
+    //Add some explored empty spaces to reduce chance of being trapped
+    let exitSpace = new Tile(doorX, doorY + 1, "floor", "floor", true);
+    exitSpace.explored = true;
+    location.map[this.getIndex(doorX, doorY + 1)] = exitSpace;
   }
 
   generateTestLocation() {
@@ -660,9 +729,11 @@ class LocationGenerator {
     //this.generateStars(10, freeCells);
     this.createActor(Crab, loc, freeCells);
     this.createActor(Crab, loc, freeCells);
-    this.createActor(Crab, loc, freeCells);
-    this.createActor(Crab, loc, freeCells);
-    this.createActor(Crab, loc, freeCells);
+    this.createActor(Pilbug, loc, freeCells);
+    this.createActor(Pilbug, loc, freeCells);
+    this.createActor(Pilbug, loc, freeCells);
+    this.createActor(Pilbug, loc, freeCells);
+    this.createActor(Pilbug, loc, freeCells);
 
     loc.atmosphere = "none";
     loc.tileset = "./images/tiles_greymoon.png";
@@ -674,7 +745,7 @@ class LocationGenerator {
       "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
       "stars": [64, 64],
       "crystal": [64, 64],
-      "crab": [0, 64],
+      "crab": [0, 64],  "redcrab": [0, 80], "pil": [0, 96],
     }
     return loc;
   }
@@ -791,14 +862,14 @@ class View {
         "crab": [0, 64],
     });
 
-    this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses);
+    this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses, {topology:4});
 
     this.textDisplay = new ROT.Display({width:74, height:7});
     //document.body.appendChild(this.textDisplay.getContainer());
     this.textWindow.appendChild(this.textDisplay.getContainer());
     this.notify("Use WASD to move, Press K to attack");
 
-    this.updateDisplay();
+    setTimeout(view.updateDisplay.bind(this), 500);
   }
 
   notify(text) {
@@ -900,6 +971,7 @@ class View {
       //Draw all visible tiles and actors
       for (let tile of fovTiles) {
         tile.explored = true;
+
         let shader = "transparent";
         let sprites = [tile.sprite];
 
@@ -1005,33 +1077,41 @@ let view = null;
 let engine = null;
 let generator = new LocationGenerator(100, 100);
 let shipString =
-"*************************" +
-"*************************" +
-"**********#####**********" +
-"*********#.....#*********" +
-"****^***#.......#***^****" +
-"****|***#.......#***|****" +
-"****||*#...===...#*||****" +
-"****||*#..#NNN#..#*||****" +
-"****||#...........#||****" +
-"****||#...........#||****" +
-"****||#...........#||****" +
-"****||#===.....####||****" +
-"****||#MBO........#||****" +
-"****||#.....@.....#||****" +
-"****||#...........#||****" +
-"****||####.....####||****" +
-"****||#...........#||****" +
-"****||#...........#||****" +
-"****||#...........#||****" +
-"****||#...#####...#||****" +
-"****||#..#*****#..#||****" +
-"****||###*******###||****" +
-"****||#|*********|#||****" +
-"****v||v*********v||v****" +
-"****|**|*********|**|****" +
-"*************************" +
-"*************************";
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"********************#####********************" +
+"*******************#.....#*******************" +
+"**************^***#.......#***^**************" +
+"**************|***#.......#***|**************" +
+"**************||*#...===...#*||**************" +
+"**************||*#..#NNN#..#*||**************" +
+"**************||#...........#||**************" +
+"**************||#...........#||**************" +
+"**************||#...........#||**************" +
+"**************||#===.....####||**************" +
+"**************||#MBO........#||**************" +
+"**************||#.....@.....#||**************" +
+"**************||#...........#||**************" +
+"**************||####.....####||**************" +
+"**************||#...........#||**************" +
+"**************||#...........#||**************" +
+"**************||#...........#||**************" +
+"**************||#...#####...#||**************" +
+"**************||#..#*****#..#||**************" +
+"**************||###*******###||**************" +
+"**************||#|*********|#||**************" +
+"**************v||v*********v||v**************" +
+"**************|**|*********|**|**************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************";
 
 //elt("div", {class: "game"}, drawGrid(level));
 function elt(type, attrs, ...children) {
@@ -1048,7 +1128,7 @@ function elt(type, attrs, ...children) {
   return dom;
 }
 
-let shipMenu = generator.createFromString(shipString, 27, 25);
+let shipMenu = generator.createFromString(shipString, 35, 45);
 shipMenu.revealed = true;
 shipMenu.atmosphere = "safe";
 shipMenu.tileset = "./images/tiles_ship.png";
