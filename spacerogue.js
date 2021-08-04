@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.3.3
+//TEST ROGUELIKE VER 0.3.4
 
 class Actor {
   constructor(x, y) {
@@ -7,7 +7,7 @@ class Actor {
     this.name = "Actor Interface";
     this.sprite = "?";
     this.speed = 10;
-    this.los = 10;
+    this.los = 3;
     this.maxEnergy = 100;
     this.energy = 100;
     this.maxHealth = 100;
@@ -820,6 +820,24 @@ class LocationGenerator {
           };
           location.map[i] = tile;
           break;
+        case "V": //Upgrade Visual
+          tile = new Tile(x, y, "upgrade", "floor", true);
+          tile.special = true;
+          tile.actionTrigger = () => {
+            if (model.player.inventory["Raw Crystal"] > 1 * model.player.los) {
+              model.player.inventory["Raw Crystal"] -= (1 * model.player.los);
+              model.player.los += 1;
+              view.notify("Suit lights upgraded")
+            } else {
+              view.notify("Insufficient material.")
+              view.notify("Perhaps with some crystals the power and focus of your lights could be improved.")
+            }
+          };
+          tile.stepTrigger = () => {
+            view.notify("Optical Workstation: Press Enter to upgrade visuals.");
+          };
+          location.map[i] = tile;
+          break;
         case "=":
           location.map[i] = new Tile(x, y, "wall", "computer", true);
           break;
@@ -1096,8 +1114,8 @@ let shipString =
 "**************||#MBO........#||**************" +
 "**************||#.....@.....#||**************" +
 "**************||#...........#||**************" +
-"**************||####.....####||**************" +
-"**************||#...........#||**************" +
+"**************||####.....#=##||**************" +
+"**************||#.........V.#||**************" +
 "**************||#...........#||**************" +
 "**************||#...........#||**************" +
 "**************||#...#####...#||**************" +
