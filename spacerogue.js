@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.3.4
+//TEST ROGUELIKE VER 0.3.5
 
 class Actor {
   constructor(x, y) {
@@ -7,7 +7,7 @@ class Actor {
     this.name = "Actor Interface";
     this.sprite = "?";
     this.speed = 10;
-    this.los = 3;
+    this.los = 4;
     this.maxEnergy = 100;
     this.energy = 100;
     this.maxHealth = 100;
@@ -21,6 +21,17 @@ class Actor {
   //Speed getter for turn order determination
   getSpeed() {
     return this.speed;
+  }
+  // FOV input callback
+  lightPasses(x, y) {
+    let tile = model.map[x + model.width * y];
+    if (tile) {
+      //FEEL FREE TO MAKE A NEW TILE ATTR
+      //  if this actor can see a special way
+      return tile.translucent;
+    } else {
+      return false;
+    }
   }
   //Passability callback for pathfinding
   //Can be overwritten to allow flight etc.
@@ -89,10 +100,29 @@ class Actor {
     }
   }
   act() {
+    //Check if player is in view
+    //I don't know if calling actionNoticePlayer over and over is actually good
+    //But it seems harmless enough right now
+    if (this.intent != "attack") { //This would be better as a variable like "seekingPlayer" or something
+      let seesPlayer = false;
+      this.fov.compute(this.x, this.y, this.los, function(x, y, r, visibility) {
+          if (model.map[x + model.width * y].occupant === model.player) {
+            seesPlayer = true;
+          }
+      });
+      if (seesPlayer) {
+        this.actionNoticePlayer();
+      }
+    }
+    //Hopefully that isn't too resource intensive and can be sustained with large numbers of mobs
+    //Let's make it turn offable just in case
+
     if (this.intent === "rest") {
       this.actionRest();
     } else if (this.intent === "wander") {
       this.actionWander();
+    } else if (this.intent === "attack") {
+      this.actionAttack(model.player);
     }
   }
 
@@ -109,14 +139,55 @@ class Actor {
   //Methods for the action depending on what "mood" the actor is in
   //These are defaults, but of course they can be overridden for different personalities
   actionRest() {
-    return;
+    //Small chance that actor "wakes up"
+    if (ROT.RNG.getPercentage() > 99) {
+      this.intent = "wander";
+    }
   }
   actionWander() {
+    //Small chance that actor "takes a nap"
+    if (ROT.RNG.getPercentage() > 99) {
+      this.intent = "rest";
+    }
     while (true) {
       let dir = ROT.DIRS[8][ROT.RNG.getItem([0, 2, 4, 6])];
       if (this.attemptMove(dir)) {
         return;
       }
+    }
+  }
+  actionNoticePlayer() {
+    this.intent = "attack";
+  }
+  actionAttack(target) {
+    let path = this.getPathTo(target.x, target.y);
+    path.shift(); /* remove position of actor */
+    if (path.length === 0) {
+      return;
+    } else if (path.length === 1) {
+      if (target === model.getTileAt(path[0][0], path[0][1]).occupant) {
+        this.attack(target);
+      }
+    } else if (path.length <= (this.los + 3) ) {
+      //the +3 helps enemies chase you a tad longer
+      // this should really be either los based instead of path
+      // or have a "memory" variable instead of a magic number
+      let x = path[0][0];
+      let y = path[0][1];
+
+      let currentTile = model.map[this.x + model.width * this.y];
+      let newTile = model.map[x + model.width * y];
+
+      if (newTile.occupant) {
+        return;
+      } else {
+        currentTile.occupant = null;
+        newTile.occupant = this;
+        this.x = x;
+        this.y = y;
+      }
+    } else {
+      this.intent = "wander";
     }
   }
 }
@@ -309,7 +380,6 @@ class Player extends Actor {
     choices[0] = generator.generateTestLocation();
     choices[1] = generator.generateMoonCrater();
     choices[2] = generator.generateTestLocation();
-    choices[1].type = "Moon"
     choices[2].type = "Planet"
 
     this.warpChoices = choices;
@@ -443,9 +513,6 @@ class Pilbug extends Actor {
     this.maxHealth = 25;
     this.health = 25;
     this.weapon = new Weapon("Crystal Claw", "claw", "melee", 1, 0, 0, 0, 0, 5);
-  }
-  act() {
-    this.actionWander();
   }
 }
 
@@ -632,10 +699,8 @@ class LocationGenerator {
     location.map[this.getIndex(doorX, doorY - 1)] = new Tile(doorX, doorY - 1, "wall", "shipUpMid", false); //upmid
     location.map[this.getIndex(doorX + 1, doorY - 1)] = new Tile(doorX + 1, doorY - 1, "wall", "shipUpRight", false); //upright
 
-    //Add some explored empty spaces to reduce chance of being trapped
-    let exitSpace = new Tile(doorX, doorY + 1, "floor", "floor", true);
-    exitSpace.explored = true;
-    location.map[this.getIndex(doorX, doorY + 1)] = exitSpace;
+    //Add an empty space to reduce chance of being trapped
+    location.map[this.getIndex(doorX, doorY + 1)] = new Tile(doorX, doorY + 1, "floor", "floor", true);
   }
 
   generateTestLocation() {
@@ -865,7 +930,7 @@ class View {
   }
 
   initialize() {
-    this.statsDisplay = new ROT.Display({width:18, height:35});
+    this.statsDisplay = new ROT.Display({width:18, height:37});
     //document.body.appendChild(this.statsDisplay.getContainer());
     this.statsWindow.appendChild(this.statsDisplay.getContainer());
 
