@@ -858,7 +858,7 @@ class View {
     this.height = height;
     this.width = width;
     this.tileSet = document.createElement("img");
-    this.notifications = ["Welcome message."];
+    this.notifications = ["Welcome to your interstellar journey."];
     this.statsWindow = document.getElementById("stats_window");
     this.mainWindow = document.getElementById("main_window");
     this.textWindow = document.getElementById("text_window");
@@ -885,7 +885,7 @@ class View {
     this.textDisplay = new ROT.Display({width:74, height:7});
     //document.body.appendChild(this.textDisplay.getContainer());
     this.textWindow.appendChild(this.textDisplay.getContainer());
-    this.notify("Use WASD to move, Press K to attack");
+    this.notify("Use WASD to move, Press K to aim and Enter to attack");
 
     setTimeout(view.updateDisplay.bind(this), 500);
   }
