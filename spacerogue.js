@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.3.5
+//TEST ROGUELIKE VER 0.3.6
 
 class Actor {
   constructor(x, y) {
@@ -386,6 +386,7 @@ class Player extends Actor {
     this.warpSelect = true;
 
     view.notify("Initiating warp drive. Please select destination, then press Enter.");
+    view.displayWarpMap(moonWarpString, 35, 45, this.selection);
 
     /*
     //Warp process pseudocode
@@ -432,6 +433,7 @@ class Player extends Actor {
       this.selection > 0 ? this.selection -= 1 : this.selection = choices.length - 1;
     }
     view.displayWarpChoice(choices[this.selection]);
+    view.displayWarpMap(moonWarpString, 35, 45, this.selection);
   }
 
   breathe(atmosphere) {
@@ -656,8 +658,14 @@ class LocationGenerator {
     return this.map[x + this.width * y];
   }
 
-  // [21, 22, 44, 46, 47]
-  createActor(type, location, freeIndexes) {
+  createActor(typeString, location, freeIndexes) {
+    //I don't like this but it doesn't work without it
+    const actorClasses = {
+      Crab,
+      Pilbug
+    };
+    let type = actorClasses[typeString];
+
     let index = freeIndexes[Math.floor(ROT.RNG.getUniform() * freeIndexes.length)];
     let actor = new type(this.getX(index), this.getY(index));
     location.map[index].occupant = actor;
@@ -667,6 +675,15 @@ class LocationGenerator {
       location.actors.push(actor);
     }
     return actor;
+  }
+
+  //Docstring I guess
+  //actors is an object with each actor type and an arbitrary number for how common it is
+  placeActors(actors, quantity, location, freeIndexes) {
+    for (let i = 0; i < quantity; i++) {
+      let classNameString = ROT.RNG.getWeightedValue(actors);
+      this.createActor(classNameString, location, freeIndexes);
+    }
   }
 
   //There is currently no way to see or interact with items
@@ -732,12 +749,12 @@ class LocationGenerator {
 
     this.placeShip(testLocation, roomCenters);
 
-    //this.generateStars(10, freeCells);
-    this.createActor(Crab, testLocation, freeCells);
-    this.createActor(Crab, testLocation, freeCells);
-    this.createActor(Crab, testLocation, freeCells);
-    this.createActor(Crab, testLocation, freeCells);
-    this.createActor(Crab, testLocation, freeCells);
+    let actors = {
+      "Crab": 1,
+      "Pilbug": 5,
+    };
+
+    this.placeActors(actors, 10, testLocation, freeCells);
 
     testLocation.atmosphere = "none";
     testLocation.tileset = "./images/tiles_greymoon.png";
@@ -749,7 +766,7 @@ class LocationGenerator {
       "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
       "stars": [64, 64],
       "crystal": [64, 64],
-      "crab": [0, 64],
+      "crab": [0, 64], "redcrab": [0, 80], "pil": [0, 96],
     }
     return testLocation;
   }
@@ -791,14 +808,12 @@ class LocationGenerator {
 
     this.placeShip(loc, [550,750,1250]);
 
-    //this.generateStars(10, freeCells);
-    this.createActor(Crab, loc, freeCells);
-    this.createActor(Crab, loc, freeCells);
-    this.createActor(Pilbug, loc, freeCells);
-    this.createActor(Pilbug, loc, freeCells);
-    this.createActor(Pilbug, loc, freeCells);
-    this.createActor(Pilbug, loc, freeCells);
-    this.createActor(Pilbug, loc, freeCells);
+    let actors = {
+      "Crab": 1,
+      "Pilbug": 5,
+    };
+
+    this.placeActors(actors, 10, loc, freeCells);
 
     loc.atmosphere = "none";
     loc.tileset = "./images/tiles_greymoon.png";
@@ -810,7 +825,7 @@ class LocationGenerator {
       "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
       "stars": [64, 64],
       "crystal": [64, 64],
-      "crab": [0, 64],  "redcrab": [0, 80], "pil": [0, 96],
+      "crab": [0, 64], "redcrab": [0, 80], "pil": [0, 96],
     }
     return loc;
   }
@@ -942,7 +957,7 @@ class View {
         "shipLowLeft": [0, 48], "shipDoor": [16, 48], "shipLowRight": [32, 48],
         "stars": [64, 64],
         "crystal": [64, 64],
-        "crab": [0, 64],
+        "crab": [0, 64], "redcrab": [0, 80], "pil": [0, 96],
     });
 
     this.fov = new ROT.FOV.PreciseShadowcasting(this.lightPasses, {topology:4});
@@ -1083,8 +1098,9 @@ class View {
         }
       }
     }
-
   }
+
+
   updateStatsDisplay() {
     this.statsDisplay.clear();
     //the %c{} means make the text color
@@ -1117,6 +1133,32 @@ class View {
     }
 
     //model.player
+  }
+
+  displayWarpMap(string, h, w, selection) {
+    for (let i = 0; i < string.length; i++) {
+      let x = i % w;
+      let y = Math.floor(i/w);
+
+      switch (string[i]) {
+        case "*":
+          this.mapDisplay.draw(x, y, model.map[i].sprite, "black", "black");
+          break;
+        case "#":
+          this.mapDisplay.draw(x, y, model.map[i].sprite, "grey", "grey");
+          break;
+        case "0": case "1": case "2": case "3":
+          if (selection == string[i]) {
+            this.mapDisplay.draw(x, y, model.map[i].sprite, "red", "red");
+          } else {
+            this.mapDisplay.draw(x, y, model.map[i].sprite, "grey", "pink");
+          }
+          break;
+
+        default:
+          alert(string[i]);
+      }
+    }
   }
 
   updateDisplay() {
@@ -1195,6 +1237,49 @@ let shipString =
 "*********************************************" +
 "*********************************************" +
 "*********************************************";
+
+let moonWarpString =
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"******************#########******************" +
+"****************#############****************" +
+"***************###############***************" +
+"**************#################**************" +
+"*************##########1########*************" +
+"************#####################************" +
+"************#####################************" +
+"***********##################3####***********" +
+"***********#######################***********" +
+"***********#######################***********" +
+"***********####0##################***********" +
+"***********#######################***********" +
+"***********#######################***********" +
+"************#####################************" +
+"************#############2#######************" +
+"*************###################*************" +
+"**************#################**************" +
+"***************###############***************" +
+"****************#############****************" +
+"******************#########******************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************" +
+"*********************************************";
+
 
 //elt("div", {class: "game"}, drawGrid(level));
 function elt(type, attrs, ...children) {
