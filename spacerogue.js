@@ -1,4 +1,4 @@
-//TEST ROGUELIKE VER 0.3.7
+//TEST ROGUELIKE VER 0.3.8
 
 class Actor {
   constructor(x, y) {
@@ -811,7 +811,7 @@ class LocationGenerator {
     //  roomCenters.push(this.getIndex(center[0], center[1]));
     //}
 
-    this.placeShip(loc, [550,750,1250]);
+    this.placeShip(loc, [750,1250,1375]);
 
     let actors = {
       "Crab": 1,
@@ -938,12 +938,13 @@ class LocationGenerator {
   }
 
   createWarpMapFromString(string, h, w) {
-    let tileArray = [];
+    let pixelArray = [];
     for (let i = 0; i < string.length; i++) {
       let x = i % w;
       let y = Math.floor(i/w);
 
       let pixel = {};
+      //This could probably be changed to just add them to the array right there instead of at the end do it and try it after you finish this thing
       switch (string[i]) {
         case "_": //Black
           pixel = {sprite:"stars", fgColor:"black", bgColor:"black"};
@@ -963,10 +964,102 @@ class LocationGenerator {
         default:
           alert(string[i]);
       }
-      tileArray[i] = pixel
+      pixelArray[i] = pixel
     }
-    return tileArray;
+    return pixelArray;
   }
+
+  createSolarSystemWarpMap(h=35,w=45){
+    let mapArray = [];
+    for (let i = 0; i < (h*w); i++) {
+      mapArray[i] = {sprite:"stars", fgColor:"black", bgColor:"black"};
+    }
+
+    let site0 = ROT.RNG.getPercentage() * 12;//150;
+    let site1 = ROT.RNG.getPercentage() * 12;//670;
+    let site2 = ROT.RNG.getPercentage() * 12;//1220;
+    let site3 = ROT.RNG.getPercentage() * 12;//1280;
+
+    this.makePlanet(site0, mapArray, 0);
+    this.makePlanet(site1, mapArray, 1);
+    this.makePlanet(site2, mapArray, 2);
+    this.makePlanet(site3, mapArray, 3);
+
+    return mapArray;
+  }
+
+  getRandomColor() {
+    let color = '';
+    while (color.length < 6) {
+      color += (Math.random()).toString(16).substr(-6).substr(-1)
+    }
+    return '#'+ color;
+  }
+
+  makePlanet(i, mapArray, site, h=35, w=45) {
+    let color = this.getRandomColor();
+    let color2 = this.getRandomColor();
+    let size = ROT.RNG.getPercentage();
+
+    ///big ringed
+    if (size > 96) {
+      mapArray[i] = {sprite:"stars", fgColor:color, bgColor:color, selection:site};
+      mapArray[i+1] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-1] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+2] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-2] = {sprite:"stars", fgColor:color2, bgColor:color2};
+
+      mapArray[i-(2*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+      mapArray[i+1-(2*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+      mapArray[i+2-(2*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+      mapArray[i-1-(2*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+
+      mapArray[i-(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+1-(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-1-(1*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+      mapArray[i+3-(1*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+      mapArray[i-2-(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+
+      mapArray[i+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-1+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+1+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+2+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-3+(1*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+
+      mapArray[i+(2*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+1+(2*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-2+(2*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+      mapArray[i-3+(2*w)] = {sprite:"stars", fgColor:color2, bgColor:color2};
+    } else if (size > 85) {
+      // Big
+      mapArray[i] = {sprite:"stars", fgColor:color, bgColor:color, selection:site};
+      mapArray[i+1] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-1] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+2] = {sprite:"stars", fgColor:color, bgColor:color};
+
+      mapArray[i-(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+1-(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+
+      mapArray[i+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i-1+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+1+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+2+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+
+      mapArray[i+(2*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+1+(2*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+    } else if (size > 40) {
+      //Regualar
+      mapArray[i] = {sprite:"stars", fgColor:color, bgColor:color, selection:site};
+      mapArray[i+1] = {sprite:"stars", fgColor:color, bgColor:color};
+
+      mapArray[i+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+      mapArray[i+1+(1*w)] = {sprite:"stars", fgColor:color, bgColor:color};
+    } else {
+      //Tiny
+      mapArray[i] = {sprite:"stars", fgColor:color, bgColor:color, selection:site};
+    }
+  }
+
 }
 
 class View {
