@@ -40,5 +40,4 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Look around
-        run: ls
         run: echo "What can be done with actions?" >> actionlog.txt
