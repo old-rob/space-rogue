@@ -35,9 +35,16 @@ jobs:
 #          echo Add other actions to build,
 #          echo test, and deploy your project.
   #A second job to find out how this even works
-  test:
+  pytesting:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Look around
-        run: echo "What can be done with actions?" >> actionlog.txt
+      - name: run pytest
+        run: pytest
+  #A third job so I don't have to make so many commits
+  look:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: look around
+        run: ls
