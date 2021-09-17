@@ -39,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: install pytest
+        run: pip install pytest
       - name: run pytest
         run: pytest
   #A third job so I don't have to make so many commits
