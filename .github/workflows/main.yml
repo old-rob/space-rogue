@@ -39,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      # For CPTAC you would probably want to 'run: cd tests' or something of that nature
       - name: install pytest
         run: pip install pytest
       - name: run pytest
